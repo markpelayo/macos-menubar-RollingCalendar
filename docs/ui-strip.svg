@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 250" width="880" height="250" font-family="-apple-system, SF Pro Text, Helvetica, Arial, sans-serif">
+  <style>
+    .lbl   { font-size: 11px; fill: #6b7280; }
+    .lblb  { font-size: 11px; fill: #374151; font-weight: 600; }
+    .title { font-size: 12px; fill: #111827; font-weight: 600; }
+    .mono  { font-size: 13px; fill: #111827; }
+    .blocktext { font-size: 10px; fill: #ffffff; }
+    .lead  { stroke: #9ca3af; stroke-width: 1; }
+  </style>
+
+  <!-- ============ menu bar ============ -->
+  <rect x="20" y="46" width="840" height="26" rx="4" fill="#e8dcc0"/>
+
+  <!-- countdown gutter -->
+  <rect x="20" y="46" width="54" height="26" fill="#ded0ae" opacity="0.65"/>
+  <text class="mono" x="47" y="63" text-anchor="middle">12m</text>
+
+  <!-- ---- timeline strip: ticks ---- -->
+  <!-- hour ticks (black, full height) at 0, 180, 360, 540 offsets from x=94 -->
+  <g fill="#000">
+    <rect x="126" y="48" width="2" height="22"/>
+    <rect x="306" y="48" width="2" height="22"/>
+    <rect x="486" y="48" width="2" height="22"/>
+    <rect x="666" y="48" width="2" height="22"/>
+  </g>
+  <!-- 15-min ticks (grey, inset) -->
+  <g fill="#000" opacity="0.35">
+    <rect x="171" y="52" width="1" height="14"/><rect x="216" y="52" width="1" height="14"/><rect x="261" y="52" width="1" height="14"/>
+    <rect x="351" y="52" width="1" height="14"/><rect x="396" y="52" width="1" height="14"/><rect x="441" y="52" width="1" height="14"/>
+    <rect x="531" y="52" width="1" height="14"/><rect x="576" y="52" width="1" height="14"/><rect x="621" y="52" width="1" height="14"/>
+    <rect x="711" y="52" width="1" height="14"/><rect x="756" y="52" width="1" height="14"/><rect x="801" y="52" width="1" height="14"/>
+  </g>
+
+  <!-- ---- event blocks, in Google Calendar palette colours ---- -->
+  <!-- Blueberry / Sleep -->
+  <rect x="96" y="49" width="42" height="20" rx="2" fill="#3f51b5" opacity="0.92"/>
+  <text class="blocktext" x="100" y="63">Sleep</text>
+  <!-- Basil / Breakfast -->
+  <rect x="141" y="49" width="42" height="20" rx="2" fill="#0b8043" opacity="0.92"/>
+  <text class="blocktext" x="145" y="63">Break…</text>
+  <!-- Peacock / Focus Work (wide) -->
+  <rect x="186" y="49" width="87" height="20" rx="2" fill="#039be5" opacity="0.92"/>
+  <text class="blocktext" x="190" y="63">Focus Work</text>
+  <!-- Peacock / Deep Work spanning now -->
+  <rect x="276" y="49" width="87" height="20" rx="2" fill="#039be5" opacity="0.92"/>
+  <text class="blocktext" x="280" y="63">Deep Work</text>
+  <!-- Banana -->
+  <rect x="366" y="49" width="42" height="20" rx="2" fill="#f6c026" opacity="0.92"/>
+  <text class="blocktext" x="370" y="63" fill="#111827">Break</text>
+  <!-- Tangerine -->
+  <rect x="411" y="49" width="87" height="20" rx="2" fill="#f5511d" opacity="0.92"/>
+  <text class="blocktext" x="415" y="63">1:1 sync</text>
+  <!-- Grape -->
+  <rect x="501" y="49" width="132" height="20" rx="2" fill="#8e24aa" opacity="0.92"/>
+  <text class="blocktext" x="505" y="63">Evening project</text>
+  <!-- Lavender -->
+  <rect x="636" y="49" width="42" height="20" rx="2" fill="#7986cb" opacity="0.92"/>
+  <text class="blocktext" x="640" y="63">Wind…</text>
+  <!-- Blueberry -->
+  <rect x="681" y="49" width="177" height="20" rx="2" fill="#3f51b5" opacity="0.92"/>
+  <text class="blocktext" x="685" y="63">Sleep</text>
+
+  <!-- ---- now line, dead centre of the strip ---- -->
+  <rect x="466" y="46" width="2" height="26" fill="#e02020"/>
+
+  <!-- ============ annotations ============ -->
+  <!-- countdown -->
+  <path class="lead" d="M47 40 L47 26 L120 26" fill="none"/>
+  <text class="lblb" x="126" y="24">Countdown</text>
+  <text class="lbl" x="126" y="37">time left in the current block — 1h05 / 12m / 45s, red under 2 min</text>
+
+  <!-- now line -->
+  <path class="lead" d="M467 78 L467 96 L560 96" fill="none"/>
+  <text class="lblb" x="566" y="94">Now</text>
+  <text class="lbl" x="566" y="107">fixed at centre; blocks slide left past it</text>
+
+  <!-- hour tick -->
+  <path class="lead" d="M307 78 L307 126 L360 126" fill="none"/>
+  <text class="lblb" x="366" y="124">Hour tick</text>
+  <text class="lbl" x="366" y="137">full height, solid</text>
+
+  <!-- 15 min tick -->
+  <path class="lead" d="M216 78 L216 156 L262 156" fill="none"/>
+  <text class="lblb" x="268" y="154">15-minute tick</text>
+  <text class="lbl" x="268" y="167">shorter, 35% opacity — three between each hour</text>
+
+  <!-- blocks -->
+  <path class="lead" d="M540 78 L540 186 L600 186" fill="none"/>
+  <text class="lblb" x="606" y="184">Event block</text>
+  <text class="lbl" x="606" y="197">real Google Calendar colour, title if it fits, small gap between neighbours</text>
+
+  <!-- past / future -->
+  <text class="lbl" x="96" y="222">← past</text>
+  <text class="lbl" x="820" y="222" text-anchor="end">future →</text>
+  <line x1="96" y1="228" x2="858" y2="228" stroke="#d1d5db" stroke-width="1"/>
+  <text class="lbl" x="467" y="242" text-anchor="middle">4-hour window (±2 h), ~360 px + 54 px countdown gutter</text>
+</svg>

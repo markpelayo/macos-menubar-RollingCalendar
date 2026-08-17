@@ -1,0 +1,21 @@
+# Build output
+build/
+*.app
+
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Xcode / SwiftPM, in case anyone adds them
+*.xcodeproj/
+*.xcworkspace/
+.swiftpm/
+.build/
+DerivedData/
+
+# Editors
+.vscode/
+.idea/
+*.swp

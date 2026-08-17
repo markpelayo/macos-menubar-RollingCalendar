@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 470" width="760" height="470" font-family="-apple-system, SF Pro Text, Helvetica, Arial, sans-serif">
+  <style>
+    .row     { font-size: 13px; fill: #1f2937; }
+    .dim     { font-size: 13px; fill: #9ca3af; }
+    .now     { font-size: 13px; fill: #0b8043; font-weight: 600; }
+    .hdr     { font-size: 13px; fill: #9ca3af; }
+    .note    { font-size: 11px; fill: #6b7280; }
+    .notebld { font-size: 11px; fill: #374151; font-weight: 600; }
+    .lead    { stroke: #d1d5db; stroke-width: 1; }
+    .sep     { stroke: #e5e7eb; stroke-width: 1; }
+  </style>
+
+  <!-- menu panel -->
+  <rect x="16" y="16" width="380" height="438" rx="10" fill="#f7f7f8" stroke="#e5e7eb"/>
+
+  <text class="hdr" x="34" y="42">Wednesday, 12 August 2026</text>
+  <line class="sep" x1="26" y1="54" x2="386" y2="54"/>
+
+  <!-- events with colour swatches -->
+  <rect x="34" y="66" width="10" height="10" rx="2.5" fill="#039be5"/>
+  <text class="dim" x="54" y="76">8:45 AM – 9:00 AM   Code review</text>
+
+  <rect x="34" y="90" width="10" height="10" rx="2.5" fill="#039be5"/>
+  <text class="now" x="54" y="100">▶︎ 9:00 AM – 9:15 AM   Deep Work</text>
+
+  <rect x="34" y="114" width="10" height="10" rx="2.5" fill="#f6c026"/>
+  <text class="row" x="54" y="124">9:15 AM – 9:30 AM   Afternoon break</text>
+
+  <rect x="34" y="138" width="10" height="10" rx="2.5" fill="#f5511d"/>
+  <text class="row" x="54" y="148">9:30 AM – 9:45 AM   1:1 sync</text>
+
+  <rect x="34" y="162" width="10" height="10" rx="2.5" fill="#8e24aa"/>
+  <text class="row" x="54" y="172">9:45 AM – 10:00 AM   Evening project</text>
+
+  <text class="dim" x="54" y="196">⋯</text>
+
+  <line class="sep" x1="26" y1="212" x2="386" y2="212"/>
+  <text class="hdr" x="34" y="232">Updated 9:04:12 AM</text>
+  <text class="row" x="34" y="256">Refresh Now</text>
+  <text class="dim" x="360" y="256" text-anchor="end">⌘R</text>
+
+  <line class="sep" x1="26" y1="270" x2="386" y2="270"/>
+  <text class="hdr" x="34" y="290">Calendar: Work</text>
+  <text class="row" x="34" y="314">Choose Calendar</text>
+  <text class="dim" x="360" y="314" text-anchor="end">▸</text>
+  <text class="row" x="34" y="338">Google Sign-In Setup…</text>
+  <text class="row" x="34" y="362">Sign Out of Google</text>
+  <text class="row" x="34" y="386">Demo Mode</text>
+  <text class="row" x="34" y="410">Open Google Calendar</text>
+
+  <line class="sep" x1="26" y1="424" x2="386" y2="424"/>
+  <text class="row" x="34" y="444">Quit</text>
+  <text class="dim" x="360" y="444" text-anchor="end">⌘Q</text>
+
+  <!-- annotations -->
+  <path class="lead" d="M300 96 L430 96" fill="none"/>
+  <text class="notebld" x="438" y="93">Current block</text>
+  <text class="note" x="438" y="107">marked ▶︎ and green; past rows dimmed</text>
+
+  <path class="lead" d="M300 71 L430 71" fill="none"/>
+  <text class="notebld" x="438" y="68">Colour swatches</text>
+  <text class="note" x="438" y="82">match the blocks on the strip</text>
+
+  <path class="lead" d="M300 314 L430 314" fill="none"/>
+  <text class="notebld" x="438" y="311">Calendar picker</text>
+  <text class="note" x="438" y="325">every calendar on the account,</text>
+  <text class="note" x="438" y="338">with its own colour</text>
+
+  <path class="lead" d="M300 386 L430 386" fill="none"/>
+  <text class="notebld" x="438" y="383">Demo Mode</text>
+  <text class="note" x="438" y="397">synthetic 15-minute blocks —</text>
+  <text class="note" x="438" y="410">no Google account needed</text>
+</svg>
