@@ -1,18 +1,27 @@
 import AppKit
 
 /// The rolling timeline drawn inside the menu bar.
-/// "Now" is a red line at the horizontal centre. Time flows right-to-left:
-/// the past is on the left, the future on the right, so event blocks slide left.
+///
+/// Layout, left to right — always a single row:
+///
+///     🔴(2) Vendor Call (59m)  ─ past │ future ─  (2h15) ZD Chat+Email 🔴(2)
+///                                       │
+///                                 red "now" line
+///
+/// Time flows right-to-left: the past is on the left, the future on the right,
+/// so blocks slide leftward past the fixed centre line. The blocks themselves
+/// carry no text — the names live in the gutters, in full, and the item widens
+/// to fit them. There are no tick marks: only past, now and future.
 final class TimelineView: NSView {
 
-    // Total visible span, centred on now. 4 h => 2 h each side.
-    var windowSeconds: TimeInterval = Config.windowHours * 3600
+    /// Total visible span, centred on now. 30 min => 15 min each side.
+    var windowSeconds: TimeInterval { Config.windowMinutes * 60 }
 
     var events: [CalEvent] = [] {
         didSet { needsDisplay = true }
     }
 
-    /// Set when the feed could not be loaded, so we can show a hint.
+    /// Set when the calendar could not be loaded, so we can show a hint.
     var errorMessage: String? {
         didSet { needsDisplay = true }
     }
@@ -22,24 +31,231 @@ final class TimelineView: NSView {
     /// Let clicks fall through to the status bar button so the menu still opens.
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    // MARK: Drawing
+    // MARK: - What the gutters say
+
+    private struct Gutters {
+        var left: String?
+        var right: String?
+        var leftWidth: CGFloat = 0
+        var rightWidth: CGFloat = 0
+        var leftIsUrgent = false
+    }
+
+    /// A zero-length event — a reminder pinned to an instant — has no width to
+    /// draw, but it's still something on your calendar, so for counting and
+    /// labelling we treat it as occupying a nominal minute.
+    private static func span(_ e: CalEvent) -> (start: Date, end: Date) {
+        (e.start, max(e.end, e.start.addingTimeInterval(60)))
+    }
+
+    private static func overlaps(_ a: CalEvent, _ b: CalEvent) -> Bool {
+        let x = span(a), y = span(b)
+        return x.end > y.start && x.start < y.end
+    }
+
+    private func gutters(now: Date) -> Gutters {
+        var g = Gutters()
+        let timed = events.filter { !$0.isAllDay }
+        let running = timed.filter { Self.span($0).start <= now && Self.span($0).end > now }
+        let upcoming = timed.filter { $0.start > now }
+        // Reminders count towards the warnings, but a "(0s)" label helps nobody,
+        // so only real blocks are eligible to headline a gutter.
+        let runningBlocks = running.filter { $0.end > $0.start }
+        let upcomingBlocks = upcoming.filter { $0.end > $0.start }
+
+        let cap = Config.maxLabelWidth
+        let current = Self.pickChained(from: runningBlocks, all: timed, preferSoonestEnd: true)
+
+        if let current {
+            let remaining = current.end.timeIntervalSince(now)
+            // 🔴 means "two things want you right now". It counts only what is
+            // genuinely concurrent, so a reminder that fires and finishes in the
+            // same instant raises the flag briefly and then lets it go, rather
+            // than nagging for the rest of a long block.
+            let clash = running.count
+            let badge = clash > 1 ? "🔴(\(clash))" : ""
+            let time = Config.showNowTimeLeft ? "(\(Self.format(remaining)))" : ""
+            let name = Config.showNowName ? current.title : ""
+            g.left = Self.assemble(badge: badge, name: name, time: time, badgeLeading: true, cap: cap)
+            g.leftIsUrgent = remaining <= 120
+        }
+
+        if let next = Self.pickChained(from: upcomingBlocks, all: timed, preferSoonestEnd: false) {
+            // On the right, 🔴 flags a collision that hasn't reached now yet.
+            // The block you're already in counts as a participant, so a meeting
+            // dropped into the middle of an all-day block is flagged before it
+            // arrives. Once the collision crosses the now line it stops being
+            // counted here and the left gutter picks it up instead.
+            var colliding = upcoming.filter { Self.overlaps($0, next) }
+            if let current, Self.overlaps(current, next) { colliding.append(current) }
+            let clash = colliding.count
+            let badge = clash > 1 ? "🔴(\(clash))" : ""
+            // How long that block runs for.
+            let time = Config.showNextDuration
+                ? "(\(Self.format(next.end.timeIntervalSince(next.start))))" : ""
+            let name = Config.showNextName ? next.title : ""
+            g.right = Self.assemble(badge: badge, name: name, time: time, badgeLeading: false, cap: cap)
+        }
+
+        if let l = g.left { g.leftWidth = min(Self.width(of: l), cap) }
+        if let r = g.right { g.rightWidth = min(Self.width(of: r), cap) }
+        return g
+    }
+
+    /// Builds a gutter label, letting it grow with the event's name but capping
+    /// it at `cap`. The badge and the time are never sacrificed — only the name
+    /// is shortened, since a truncated countdown would be useless.
+    ///
+    ///   badgeLeading true:   🔴(2) Some Very Long Meet… (5m)
+    ///   badgeLeading false:  (16h) Some Very Long Meet… 🔴(2)
+    private static func assemble(badge: String, name: String, time: String,
+                                 badgeLeading: Bool, cap: CGFloat) -> String? {
+        var fixed: [String] = []
+        if badgeLeading {
+            if !badge.isEmpty { fixed.append(badge) }
+            if !time.isEmpty { fixed.append(time) }
+        } else {
+            if !time.isEmpty { fixed.append(time) }
+            if !badge.isEmpty { fixed.append(badge) }
+        }
+
+        guard !name.isEmpty else {
+            let joined = fixed.joined(separator: " ")
+            return joined.isEmpty ? nil : joined
+        }
+
+        // Room left for the name once the fixed parts and their spaces are set aside.
+        let spacers = String(repeating: " ", count: fixed.count)
+        let budget = cap - width(of: fixed.joined() + spacers)
+        let shown = fitted(name, into: budget)
+
+        var parts: [String] = []
+        if badgeLeading {
+            if !badge.isEmpty { parts.append(badge) }
+            if !shown.isEmpty { parts.append(shown) }
+            if !time.isEmpty { parts.append(time) }
+        } else {
+            if !time.isEmpty { parts.append(time) }
+            if !shown.isEmpty { parts.append(shown) }
+            if !badge.isEmpty { parts.append(badge) }
+        }
+        let joined = parts.joined(separator: " ")
+        return joined.isEmpty ? nil : joined
+    }
+
+    /// Trim a name to fit, with an ellipsis. Returns "" if there's no room worth using.
+    private static func fitted(_ text: String, into available: CGFloat) -> String {
+        guard available > 12 else { return "" }
+        let full = width(of: text)
+        if full <= available { return text }
+
+        // Start from a proportional guess rather than trimming one glyph at a time.
+        let ratio = Double(available / max(full, 1))
+        var chars = Array(text.prefix(max(1, Int(Double(text.count) * ratio))))
+        while !chars.isEmpty,
+              width(of: String(chars).trimmingCharacters(in: .whitespaces) + "…") > available {
+            chars.removeLast()
+        }
+        while chars.count < text.count,
+              width(of: String(text.prefix(chars.count + 1)).trimmingCharacters(in: .whitespaces) + "…") <= available {
+            chars.append(text[text.index(text.startIndex, offsetBy: chars.count)])
+        }
+        let trimmed = String(chars).trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? "" : trimmed + "…"
+    }
+
+    /// Breathing room between a label and the timeline. There is deliberately
+    /// none on the outer edges — macOS already pads status items, and adding our
+    /// own leaves a visible gap before the first character and after the last.
+    private static let innerGap: CGFloat = 8
+
+    /// Width the status item needs so both names fit in full.
+    func desiredWidth() -> CGFloat {
+        let g = gutters(now: Date())
+        var w = Config.timelineWidth
+        if g.leftWidth > 0 { w += g.leftWidth + Self.innerGap }
+        if g.rightWidth > 0 { w += g.rightWidth + Self.innerGap }
+        return ceil(w)
+    }
+
+    /// Which block a gutter should name.
+    ///
+    /// Time comes first: on the left, whatever ends soonest — that's the
+    /// deadline that matters; on the right, whatever starts soonest. Only when
+    /// two candidates tie exactly does chain position decide it, preferring the
+    /// block that belongs to a back-to-back run (its start meets another's end
+    /// and its end meets another's start). That's the time-blocked backbone; a
+    /// meeting dropped on top of it chains to nothing, so the backbone keeps the
+    /// label and the interloper is what the 🔴 is telling you about.
+    static func pickChained(from candidates: [CalEvent], all: [CalEvent],
+                            preferSoonestEnd: Bool) -> CalEvent? {
+        guard candidates.count > 1 else { return candidates.first }
+        let tolerance: TimeInterval = 60
+
+        func meets(_ a: Date, _ b: Date) -> Bool { abs(a.timeIntervalSince(b)) <= tolerance }
+
+        func score(_ ev: CalEvent) -> Int {
+            var s = 0
+            if all.contains(where: { $0.start != ev.start && meets($0.end, ev.start) }) { s += 2 }
+            if all.contains(where: { $0.start != ev.start && meets($0.start, ev.end) }) { s += 2 }
+            return s
+        }
+
+        return candidates.min { a, b in
+            // Nearest in time wins — a far-off block must never outrank one
+            // that's about to happen, however well it chains.
+            if preferSoonestEnd, a.end != b.end { return a.end < b.end }
+            if !preferSoonestEnd, a.start != b.start { return a.start < b.start }
+            let sa = score(a), sb = score(b)
+            if sa != sb { return sa > sb }                       // then better-chained
+            let da = a.end.timeIntervalSince(a.start), db = b.end.timeIntervalSince(b.start)
+            if da != db { return da < db }                       // then shorter
+            return a.title < b.title                             // stable
+        }
+    }
+
+    // MARK: - Drawing
 
     override func draw(_ dirtyRect: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
         let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-
-        let hourColor = isDark ? NSColor.white : NSColor.black
-        let quarterColor = (isDark ? NSColor.white : NSColor.black).withAlphaComponent(0.35)
-        let nowColor = NSColor.systemRed
-
         let now = Date()
 
-        // The countdown gets its own gutter on the left; the timeline occupies
-        // the rest, so "now" stays centred within the timeline itself.
-        let gutter = min(Config.countdownWidth, max(bounds.width - 8, 0))
-        let strip = CGRect(x: bounds.minX + gutter, y: bounds.minY,
-                           width: max(bounds.width - gutter, 1), height: bounds.height)
+        if let msg = errorMessage {
+            drawLabel(msg, in: bounds, color: .systemRed, alignment: .center)
+            return
+        }
 
+        let g = gutters(now: now)
+        let gap = Self.innerGap
+        // Labels sit flush with the outer edges; the gap is only between a
+        // label and the timeline.
+        let leftGutter = g.leftWidth > 0 ? g.leftWidth + gap : 0
+        let rightGutter = g.rightWidth > 0 ? g.rightWidth + gap : 0
+        let strip = CGRect(x: bounds.minX + leftGutter,
+                           y: bounds.minY,
+                           width: max(bounds.width - leftGutter - rightGutter, 1),
+                           height: bounds.height)
+
+        // --- Gutters ---
+        if let text = g.left {
+            drawLabel(text,
+                      in: CGRect(x: bounds.minX, y: bounds.minY,
+                                 width: g.leftWidth, height: bounds.height),
+                      color: g.leftIsUrgent ? .systemRed : (isDark ? .white : .black),
+                      alignment: .right)
+        }
+        if let text = g.right {
+            // Same weight and colour as the left label — the old dimmed grey
+            // was hard to read against the menu bar.
+            drawLabel(text,
+                      in: CGRect(x: strip.maxX + gap, y: bounds.minY,
+                                 width: g.rightWidth, height: bounds.height),
+                      color: isDark ? .white : .black,
+                      alignment: .left)
+        }
+
+        // --- Timeline ---
         let half = windowSeconds / 2
         let windowStart = now.addingTimeInterval(-half)
         let windowEnd = now.addingTimeInterval(half)
@@ -48,158 +264,138 @@ final class TimelineView: NSView {
             strip.midX + CGFloat(d.timeIntervalSince(now)) * pxPerSec
         }
 
-        let track = strip.insetBy(dx: 0, dy: 2)
-
         ctx.saveGState()
-
-        if let msg = errorMessage {
-            drawText(msg, in: bounds, color: NSColor.systemRed, centered: true)
-            ctx.restoreGState()
-            return
-        }
-
-        // --- Countdown for the block we're inside, in the left gutter ---
-        drawCountdown(now: now, in: CGRect(x: bounds.minX, y: bounds.minY,
-                                           width: gutter, height: bounds.height),
-                      isDark: isDark)
-
         ctx.clip(to: strip)
 
-        // --- Tick marks: black on the hour, grey every 15 minutes ---
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = Config.displayTimeZone
-        if var tick = cal.nextDate(after: windowStart.addingTimeInterval(-900),
-                                   matching: DateComponents(minute: 0),
-                                   matchingPolicy: .nextTime) {
-            tick = tick.addingTimeInterval(-3600)  // start a bit before the window
-            while tick < windowEnd {
-                let minute = cal.component(.minute, from: tick)
-                if tick >= windowStart, minute % 15 == 0 {
-                    let isHour = minute == 0
-                    let px = round(x(tick))
-                    let w: CGFloat = isHour ? 2.0 : 1.0
-                    let inset: CGFloat = isHour ? 0 : track.height * 0.22
-                    (isHour ? hourColor : quarterColor).setFill()
-                    ctx.fill(CGRect(x: px - w / 2, y: track.minY + inset,
-                                    width: w, height: track.height - inset * 2))
-                }
-                tick = tick.addingTimeInterval(900)
-            }
-        }
+        let track = strip.insetBy(dx: 0, dy: 2)
+        let nowX = strip.midX
 
-        // --- Event blocks ---
-        let visible = events.filter { !$0.isAllDay && $0.intersects(windowStart, windowEnd) }
+        // Zero-length events (reminders) have no extent in time, so drawing them
+        // would put a stray sliver between the two real blocks they sit between.
+        // They still count towards the 🔴 warnings and appear in the dropdown.
+        // Longest first, so a shorter concurrent block stays visible on top.
+        let visible = events
+            .filter { !$0.isAllDay && $0.end > $0.start && $0.intersects(windowStart, windowEnd) }
+            .sorted { $0.end.timeIntervalSince($0.start) > $1.end.timeIntervalSince($1.start) }
+
         for ev in visible {
-            let x0 = max(x(ev.start), strip.minX - 4)
-            let x1 = min(x(ev.end), strip.maxX + 4)
+            let x0 = max(x(ev.start), strip.minX - 12)
+            let x1 = min(x(ev.end), strip.maxX + 12)
             let full = max(x1 - x0, 3)
 
-            // Purely visual separation — the block's time span is untouched, we
-            // just shave a sliver off each edge so neighbours don't merge into
-            // one solid bar. Capped so short blocks don't vanish.
-            let trim = min(Config.blockGap / 2, full * 0.18)
-            // Floor of 3 so the 0.75 pt inset below can't collapse the fill.
+            // Cosmetic separation only — the block's time span is untouched.
+            let trim = min(Config.blockGap / 2, full * 0.2)
             let rect = CGRect(x: x0 + trim, y: track.minY,
                               width: max(full - trim * 2, 3), height: track.height)
-            let w = rect.width
-            let path = NSBezierPath(roundedRect: rect.insetBy(dx: 0.75, dy: 0.75), xRadius: 2, yRadius: 2)
 
-            // Google's own colour for this event, falling back to green.
+            // Capsule ends, or a fixed radius if one is configured.
+            let radius = Config.blockCornerRadius > 0
+                ? min(Config.blockCornerRadius, min(rect.height, rect.width) / 2)
+                : min(rect.height, rect.width) / 2
+            let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
+
             let base = ev.color ?? NSColor.systemGreen
-            base.withAlphaComponent(Config.solidBlocks ? 0.92 : (isDark ? 0.30 : 0.22)).setFill()
-            path.fill()
-            base.setStroke()
-            path.lineWidth = 1.5
-            path.stroke()
+            let future = base.withAlphaComponent(Config.solidBlocks ? 0.95 : (isDark ? 0.32 : 0.24))
+            // Elapsed time reads paler, so a block visibly fades as it passes now.
+            let past = (base.highlight(withLevel: isDark ? 0.45 : 0.6) ?? base)
+                .withAlphaComponent(Config.solidBlocks ? 0.85 : (isDark ? 0.18 : 0.14))
 
-            // Only label blocks wide enough to show something meaningful;
-            // the threshold scales with the font so bigger text needs more room.
-            if Config.showTitles, w > Config.titleFontSize * 2.4 {
-                let textRect = rect.insetBy(dx: 4, dy: 0)
-                let textColor: NSColor = Config.solidBlocks
-                    ? (base.isLight ? NSColor.black : NSColor.white)
-                    : (isDark ? NSColor.white : NSColor.black.withAlphaComponent(0.85))
-                drawText(ev.title, in: textRect, color: textColor, centered: false)
+            future.setFill()
+            path.fill()
+
+            // Repaint just the part left of the now line in the paler tone.
+            if rect.minX < nowX {
+                ctx.saveGState()
+                path.addClip()
+                ctx.clip(to: CGRect(x: rect.minX, y: rect.minY,
+                                    width: min(nowX, rect.maxX) - rect.minX,
+                                    height: rect.height))
+                past.setFill()
+                ctx.fill(rect)
+                ctx.restoreGState()
+            }
+
+            // Outline, so neighbouring blocks stay distinct against the bar.
+            // It fades at the now line too, matching the fill.
+            let outline = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5),
+                                       xRadius: radius, yRadius: radius)
+            outline.lineWidth = 1
+            let inkFuture = (isDark ? NSColor.black : NSColor.black).withAlphaComponent(0.6)
+            let inkPast = (isDark ? NSColor.black : NSColor.black).withAlphaComponent(0.25)
+
+            if rect.minX < nowX {
+                ctx.saveGState()
+                ctx.clip(to: CGRect(x: rect.minX - 1, y: rect.minY - 1,
+                                    width: min(nowX, rect.maxX) - rect.minX + 1,
+                                    height: rect.height + 2))
+                inkPast.setStroke()
+                outline.stroke()
+                ctx.restoreGState()
+            }
+            if rect.maxX > nowX {
+                let from = max(nowX, rect.minX)
+                ctx.saveGState()
+                ctx.clip(to: CGRect(x: from, y: rect.minY - 1,
+                                    width: rect.maxX - from + 1, height: rect.height + 2))
+                inkFuture.setStroke()
+                outline.stroke()
+                ctx.restoreGState()
             }
         }
 
-        // --- Now line (drawn last so it stays on top) ---
-        nowColor.setFill()
-        let nowX = round(strip.midX)
-        ctx.fill(CGRect(x: nowX - 1, y: strip.minY, width: 2, height: strip.height))
+        // --- Now line, drawn last so it stays on top ---
+        // A faint halo either side lifts it off the coloured blocks; without it
+        // the red can disappear against a warm-toned capsule.
+        let lineWidth = Config.nowLineWidth
+        let centre = round(nowX)
+        (isDark ? NSColor.black : NSColor.white).withAlphaComponent(0.5).setFill()
+        ctx.fill(CGRect(x: centre - lineWidth / 2 - 1, y: strip.minY,
+                        width: lineWidth + 2, height: strip.height))
+        NSColor.systemRed.setFill()
+        ctx.fill(CGRect(x: centre - lineWidth / 2, y: strip.minY,
+                        width: lineWidth, height: strip.height))
 
         ctx.restoreGState()
     }
 
-    // MARK: Countdown
+    // MARK: - Text
 
-    /// Time left in the block we're currently inside — or, if we're between
-    /// blocks, how long until the next one starts.
-    private func drawCountdown(now: Date, in rect: CGRect, isDark: Bool) {
-        guard rect.width > 8 else { return }   // gutter hidden
-        let timed = events.filter { !$0.isAllDay }
-        // If blocks are nested, count down the one ending soonest — that's the
-        // deadline that actually matters.
-        let current = timed.filter { $0.start <= now && $0.end > now }
-            .min(by: { $0.end < $1.end })
-
-        let text: String
-        let color: NSColor
-        if let current {
-            text = Self.format(current.end.timeIntervalSince(now))
-            let remaining = current.end.timeIntervalSince(now)
-            // Nudge toward red in the last two minutes.
-            color = remaining <= 120 ? NSColor.systemRed
-                                     : (isDark ? NSColor.white : NSColor.black)
-        } else if let next = timed.filter({ $0.start > now }).min(by: { $0.start < $1.start }) {
-            text = "in " + Self.format(next.start.timeIntervalSince(now))
-            color = (isDark ? NSColor.white : NSColor.black).withAlphaComponent(0.45)
-        } else {
-            return
-        }
-
-        let style = NSMutableParagraphStyle()
-        style.alignment = .center
-        style.lineBreakMode = .byClipping
-        let attrs: [NSAttributedString.Key: Any] = [
-            // Menu bar font size and regular weight, matching other menu bar
-            // widgets; monospaced digits only so the number doesn't jitter.
-            .font: NSFont.monospacedDigitSystemFont(ofSize: Config.countdownFontSize, weight: .regular),
-            .foregroundColor: color,
-            .paragraphStyle: style
-        ]
-        let attributed = NSAttributedString(string: text, attributes: attrs)
-        let h = attributed.size().height
-        attributed.draw(with: CGRect(x: rect.minX + 2, y: rect.midY - h / 2,
-                                     width: rect.width - 4, height: h),
-                        options: [.usesLineFragmentOrigin])
-    }
-
-    /// "1h05", "12m", "45s" — compact enough for the menu bar.
-    static func format(_ seconds: TimeInterval) -> String {
-        // Round up, so it only reads 0 once the block has actually ended.
-        let total = max(Int(seconds.rounded(.up)), 0)
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        if hours > 0 { return String(format: "%dh%02d", hours, minutes) }
-        if minutes > 0 { return "\(minutes)m" }
-        return "\(total)s"
-    }
-
-    private func drawText(_ s: String, in rect: CGRect, color: NSColor, centered: Bool) {
+    private static func attributes(_ color: NSColor,
+                                   _ alignment: NSTextAlignment) -> [NSAttributedString.Key: Any] {
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byTruncatingTail
-        style.alignment = centered ? .center : .left
-        let attrs: [NSAttributedString.Key: Any] = [
+        style.alignment = alignment
+        return [
             // Same font macOS uses for menu bar labels.
             .font: NSFont.menuBarFont(ofSize: Config.titleFontSize),
             .foregroundColor: color,
             .paragraphStyle: style
         ]
-        let attributed = NSAttributedString(string: s, attributes: attrs)
+    }
+
+    static func width(of s: String) -> CGFloat {
+        ceil(NSAttributedString(string: s, attributes: attributes(.black, .left)).size().width) + 1
+    }
+
+    private func drawLabel(_ s: String, in rect: CGRect, color: NSColor,
+                           alignment: NSTextAlignment) {
+        guard rect.width > 2 else { return }
+        let attributed = NSAttributedString(string: s, attributes: Self.attributes(color, alignment))
         let h = attributed.size().height
-        let r = CGRect(x: rect.minX, y: rect.midY - h / 2, width: rect.width, height: h)
-        attributed.draw(with: r, options: [.truncatesLastVisibleLine, .usesLineFragmentOrigin])
+        attributed.draw(with: CGRect(x: rect.minX, y: rect.midY - h / 2,
+                                     width: rect.width, height: h),
+                        options: [.truncatesLastVisibleLine, .usesLineFragmentOrigin])
+    }
+
+    /// "1h05", "1h", "12m", "45s" — compact enough for the menu bar.
+    static func format(_ seconds: TimeInterval) -> String {
+        // Round up, so it only reads 0 once the block has actually ended.
+        let total = max(Int(seconds.rounded(.up)), 0)
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        if hours > 0 { return minutes > 0 ? String(format: "%dh%02d", hours, minutes) : "\(hours)h" }
+        if minutes > 0 { return "\(minutes)m" }
+        return "\(total)s"
     }
 }
 
@@ -226,10 +422,4 @@ extension NSColor {
                   alpha: 1.0)
     }
 
-    /// Rough perceptual brightness test, for picking readable label text.
-    var isLight: Bool {
-        guard let c = usingColorSpace(.sRGB) else { return true }
-        let luma = 0.299 * c.redComponent + 0.587 * c.greenComponent + 0.114 * c.blueComponent
-        return luma > 0.6
-    }
 }

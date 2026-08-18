@@ -2,96 +2,81 @@
   <style>
     .lbl   { font-size: 11px; fill: #6b7280; }
     .lblb  { font-size: 11px; fill: #374151; font-weight: 600; }
-    .title { font-size: 12px; fill: #111827; font-weight: 600; }
-    .mono  { font-size: 13px; fill: #111827; }
-    .blocktext { font-size: 10px; fill: #ffffff; }
+    .gutter{ font-size: 12px; fill: #111827; }
+    .count { font-size: 12px; fill: #111827; }
     .lead  { stroke: #9ca3af; stroke-width: 1; }
   </style>
 
   <!-- ============ menu bar ============ -->
   <rect x="20" y="46" width="840" height="26" rx="4" fill="#e8dcc0"/>
 
-  <!-- countdown gutter -->
-  <rect x="20" y="46" width="54" height="26" fill="#ded0ae" opacity="0.65"/>
-  <text class="mono" x="47" y="63" text-anchor="middle">12m</text>
+  <!-- left gutter: 🔴(2) name (time left) — badge flush with the outer edge -->
+  <circle cx="28" cy="59" r="5" fill="#e02020"/>
+  <text class="count"  x="36"  y="63">(2)</text>
+  <text class="gutter" x="212" y="63" text-anchor="end">Vendor Call (59m)</text>
 
-  <!-- ---- timeline strip: ticks ---- -->
-  <!-- hour ticks (black, full height) at 0, 180, 360, 540 offsets from x=94 -->
-  <g fill="#000">
-    <rect x="126" y="48" width="2" height="22"/>
-    <rect x="306" y="48" width="2" height="22"/>
-    <rect x="486" y="48" width="2" height="22"/>
-    <rect x="666" y="48" width="2" height="22"/>
-  </g>
-  <!-- 15-min ticks (grey, inset) -->
-  <g fill="#000" opacity="0.35">
-    <rect x="171" y="52" width="1" height="14"/><rect x="216" y="52" width="1" height="14"/><rect x="261" y="52" width="1" height="14"/>
-    <rect x="351" y="52" width="1" height="14"/><rect x="396" y="52" width="1" height="14"/><rect x="441" y="52" width="1" height="14"/>
-    <rect x="531" y="52" width="1" height="14"/><rect x="576" y="52" width="1" height="14"/><rect x="621" y="52" width="1" height="14"/>
-    <rect x="711" y="52" width="1" height="14"/><rect x="756" y="52" width="1" height="14"/><rect x="801" y="52" width="1" height="14"/>
+  <!-- right gutter: (length) name 🔴(2) -->
+  <text class="gutter" x="638" y="63">(2h15) ZD Chat+Email</text>
+  <circle cx="806" cy="59" r="5" fill="#e02020"/>
+  <text class="count"  x="814" y="63">(2)</text>
+
+  <!-- ---- PAST: same colours lightened, lighter outline, no text inside ---- -->
+  <g stroke="#000" stroke-opacity="0.25" stroke-width="1">
+    <rect x="220" y="49.5" width="70"  height="19" rx="9.5" fill="#3f51b5" fill-opacity="0.38"/>
+    <rect x="291" y="49.5" width="56"  height="19" rx="9.5" fill="#0b8043" fill-opacity="0.38"/>
+    <rect x="348" y="49.5" width="66"  height="19" rx="9.5" fill="#039be5" fill-opacity="0.38"/>
   </g>
 
-  <!-- ---- event blocks, in Google Calendar palette colours ---- -->
-  <!-- Blueberry / Sleep -->
-  <rect x="96" y="49" width="42" height="20" rx="2" fill="#3f51b5" opacity="0.92"/>
-  <text class="blocktext" x="100" y="63">Sleep</text>
-  <!-- Basil / Breakfast -->
-  <rect x="141" y="49" width="42" height="20" rx="2" fill="#0b8043" opacity="0.92"/>
-  <text class="blocktext" x="145" y="63">Break…</text>
-  <!-- Peacock / Focus Work (wide) -->
-  <rect x="186" y="49" width="87" height="20" rx="2" fill="#039be5" opacity="0.92"/>
-  <text class="blocktext" x="190" y="63">Focus Work</text>
-  <!-- Peacock / Deep Work spanning now -->
-  <rect x="276" y="49" width="87" height="20" rx="2" fill="#039be5" opacity="0.92"/>
-  <text class="blocktext" x="280" y="63">Deep Work</text>
-  <!-- Banana -->
-  <rect x="366" y="49" width="42" height="20" rx="2" fill="#f6c026" opacity="0.92"/>
-  <text class="blocktext" x="370" y="63" fill="#111827">Break</text>
-  <!-- Tangerine -->
-  <rect x="411" y="49" width="87" height="20" rx="2" fill="#f5511d" opacity="0.92"/>
-  <text class="blocktext" x="415" y="63">1:1 sync</text>
-  <!-- Grape -->
-  <rect x="501" y="49" width="132" height="20" rx="2" fill="#8e24aa" opacity="0.92"/>
-  <text class="blocktext" x="505" y="63">Evening project</text>
-  <!-- Lavender -->
-  <rect x="636" y="49" width="42" height="20" rx="2" fill="#7986cb" opacity="0.92"/>
-  <text class="blocktext" x="640" y="63">Wind…</text>
-  <!-- Blueberry -->
-  <rect x="681" y="49" width="177" height="20" rx="2" fill="#3f51b5" opacity="0.92"/>
-  <text class="blocktext" x="685" y="63">Sleep</text>
+  <!-- ---- CURRENT: straddles now — elapsed part paler with a lighter outline,
+            remaining part solid with a darker one ---- -->
+  <clipPath id="clipPast"><rect x="415" y="46" width="7" height="26"/></clipPath>
+  <clipPath id="clipFuture"><rect x="422" y="46" width="120" height="26"/></clipPath>
+  <rect x="415" y="49.5" width="118" height="19" rx="9.5" fill="#f6c026" fill-opacity="0.95"/>
+  <g clip-path="url(#clipPast)">
+    <rect x="415" y="49.5" width="118" height="19" rx="9.5" fill="#f6c026" fill-opacity="0.35"
+          stroke="#000" stroke-opacity="0.25"/>
+  </g>
+  <g clip-path="url(#clipFuture)">
+    <rect x="415" y="49.5" width="118" height="19" rx="9.5" fill="none"
+          stroke="#000" stroke-opacity="0.6"/>
+  </g>
 
-  <!-- ---- now line, dead centre of the strip ---- -->
-  <rect x="466" y="46" width="2" height="26" fill="#e02020"/>
+  <!-- ---- FUTURE: full strength, darker outline ---- -->
+  <g stroke="#000" stroke-opacity="0.6" stroke-width="1">
+    <rect x="534" y="49.5" width="52" height="19" rx="9.5" fill="#f5511d" fill-opacity="0.95"/>
+    <rect x="587" y="49.5" width="43" height="19" rx="9.5" fill="#039be5" fill-opacity="0.95"/>
+  </g>
+
+  <!-- ---- now line: 4 pt, with a halo so it survives any block colour ---- -->
+  <rect x="416" y="46" width="6" height="26" fill="#ffffff" fill-opacity="0.5"/>
+  <rect x="417" y="46" width="4" height="26" fill="#e02020"/>
 
   <!-- ============ annotations ============ -->
-  <!-- countdown -->
-  <path class="lead" d="M47 40 L47 26 L120 26" fill="none"/>
-  <text class="lblb" x="126" y="24">Countdown</text>
-  <text class="lbl" x="126" y="37">time left in the current block — 1h05 / 12m / 45s, red under 2 min</text>
+  <path class="lead" d="M34 40 L34 26 L96 26" fill="none"/>
+  <text class="lblb" x="102" y="24">🔴 on the left = live clash</text>
+  <text class="lbl" x="102" y="37">two things want you right now</text>
 
-  <!-- now line -->
-  <path class="lead" d="M467 78 L467 96 L560 96" fill="none"/>
-  <text class="lblb" x="566" y="94">Now</text>
-  <text class="lbl" x="566" y="107">fixed at centre; blocks slide left past it</text>
+  <path class="lead" d="M812 40 L812 26 L700 26" fill="none"/>
+  <text class="lblb" x="694" y="24" text-anchor="end">🔴 on the right = still ahead</text>
 
-  <!-- hour tick -->
-  <path class="lead" d="M307 78 L307 126 L360 126" fill="none"/>
-  <text class="lblb" x="366" y="124">Hour tick</text>
-  <text class="lbl" x="366" y="137">full height, solid</text>
+  <path class="lead" d="M170 78 L170 96 L238 96" fill="none"/>
+  <text class="lblb" x="244" y="94">Current block + time left</text>
+  <text class="lbl" x="244" y="107">turns red in the final two minutes</text>
 
-  <!-- 15 min tick -->
-  <path class="lead" d="M216 78 L216 156 L262 156" fill="none"/>
-  <text class="lblb" x="268" y="154">15-minute tick</text>
-  <text class="lbl" x="268" y="167">shorter, 35% opacity — three between each hour</text>
+  <path class="lead" d="M419 78 L419 128 L479 128" fill="none"/>
+  <text class="lblb" x="485" y="126">Now</text>
+  <text class="lbl" x="485" y="139">fixed at centre; blocks slide left past it</text>
 
-  <!-- blocks -->
-  <path class="lead" d="M540 78 L540 186 L600 186" fill="none"/>
-  <text class="lblb" x="606" y="184">Event block</text>
-  <text class="lbl" x="606" y="197">real Google Calendar colour, title if it fits, small gap between neighbours</text>
+  <path class="lead" d="M380 78 L380 160 L440 160" fill="none"/>
+  <text class="lblb" x="446" y="158">Past — paler, lighter outline</text>
+  <text class="lbl" x="446" y="171">no text inside: the names live in the gutters</text>
 
-  <!-- past / future -->
-  <text class="lbl" x="96" y="222">← past</text>
-  <text class="lbl" x="820" y="222" text-anchor="end">future →</text>
-  <line x1="96" y1="228" x2="858" y2="228" stroke="#d1d5db" stroke-width="1"/>
-  <text class="lbl" x="467" y="242" text-anchor="middle">4-hour window (±2 h), ~360 px + 54 px countdown gutter</text>
+  <path class="lead" d="M470 78 L470 192 L530 192" fill="none"/>
+  <text class="lblb" x="536" y="190">A block in progress fades from the left</text>
+  <text class="lbl" x="536" y="203">elapsed part pale, remaining part solid</text>
+
+  <text class="lbl" x="220" y="228">← 2 hours of past</text>
+  <text class="lbl" x="630" y="228" text-anchor="end">2 hours of future →</text>
+  <line x1="220" y1="234" x2="630" y2="234" stroke="#d1d5db" stroke-width="1"/>
+  <text class="lbl" x="425" y="248" text-anchor="middle">250 pt by default — both range and width are set from the menu</text>
 </svg>

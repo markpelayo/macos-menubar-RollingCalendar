@@ -12,13 +12,15 @@ A macOS menu bar app that draws today's calendar as a horizontal timeline scroll
 
 ![Rolling Calendar menu bar strip](docs/ui-strip.svg)
 
-Time flows right-to-left. The red line is fixed at the centre and always marks now, so blocks drift leftward as the day passes: what's left of the current block is to the left of the line, what's coming is to the right.
+Time flows right-to-left. The red line is fixed at the centre and always marks now, so blocks drift leftward as the day passes. There are no tick marks or gridlines — just past, now and future.
 
-- **Black ticks** — hour boundaries, full height
-- **Grey ticks** — 15-minute marks, shorter and lighter, three between each hour
-- **Coloured blocks** — your events in their real Google Calendar colours, titled when wide enough, with a small gap between neighbours so back-to-back blocks stay legible
-- **Countdown, far left** — time left in the block you're in (`1h05`, `12m`, `45s`), red in the final two minutes. Between blocks it reads `in 8m` until the next one
-- **Window** — ±2 hours, about 360 px, plus a 54 px countdown gutter
+- **Left label** — the block you're in and how much of it is left, e.g. `ZD Chat+Email (5m)`, turning red in the final two minutes
+- **Right label** — what's next and how long that block runs for, e.g. `(16h) Out of office`
+- **Labels size themselves to the name** — the menu bar item grows and shrinks as event names change, up to `maxLabelWidth` (240 pt). Past that the *name* is shortened with an ellipsis; the countdown and the warning badge are never cut, since a truncated countdown would be useless. The capsules carry no text, as it would only repeat the labels
+- **Coloured capsules** — your events in their real Google Calendar colours, outlined so neighbours stay distinct, separated by a 1 pt gap
+- **Past is paler** — the same colour, lightened once it's behind the line, with a lighter outline to match. A block in progress fades from the left as it elapses, so you can see how far through it you are
+- **Double-booking is flagged, not stacked** — the strip stays one row, and the badge's *side* tells you when the clash is. On the **right** it hasn't reached now yet: `(1h) Vendor Call 🔴(2)`. On the **left** it's live: `🔴(2) Vendor Call (59m)` — two things want you right this second. A clash appears on the right, crosses to the left as it reaches the now line, and clears when it's over. Open the dropdown for the full list
+- **Window** — ±2 hours across 250 pt by default, plus however much the two labels need. Both are adjustable from the menu
 
 Clicking the strip opens today's schedule:
 
@@ -26,11 +28,13 @@ Clicking the strip opens today's schedule:
 
 ### On a real Mac
 
-<img src="docs/demo-mode-screenshot.png" alt="The app running in Demo Mode, showing green 15-minute blocks in the menu bar and the dropdown listing today's blocks" width="480">
+<img src="docs/demo-mode-screenshot.png" alt="The app running in Demo Mode: green blocks in the menu bar with a red now line, and the dropdown listing today's blocks" width="480">
 
-The green boxes in the menu bar are the timeblocks; the red line through them is now, and `16s` at the left is the countdown. Each block here is 15 minutes, which is only ~22 px wide — too narrow for the title to fit, so they render as plain colour. Titles appear on wider blocks; the dropdown lists them in full, with the current one marked ▶︎ and past ones dimmed.
+The green boxes are the timeblocks, the red line through them is now, and the dropdown lists the day in full with the current block marked ▶︎ and past ones dimmed. This is [Demo Mode](#testing-without-a-calendar), so every block is the same green and the schedule is synthetic — a real calendar gives each block its own colour.
 
-This is [Demo Mode](#testing-without-a-calendar) with the test grid, so every block is the same green and the schedule is synthetic — a real calendar gives each block its own colour. The strip is deliberately small: it lives in the menu bar and is meant to be read at a glance, not studied.
+> Taken from an earlier build: it predates the capsule shape, the block outlines and the current label format. The diagrams above reflect what you'll actually see.
+
+The strip is deliberately small — it lives in the menu bar and is meant to be read at a glance, not studied.
 
 ## Quick start
 
@@ -105,7 +109,7 @@ Strip → **Set Calendar Link…**, and paste any of these — the app works out
 
 **HTTP 404 means the calendar isn't public.** Either share it publicly (Google Calendar → Settings and sharing → *Access permissions* → **Make available to public**), use the **Secret address in iCal format** under *Integrate calendar*, or sign in with Google instead.
 
-A `ctz=` parameter in the link sets the time zone for ticks and event times; otherwise the Mac's own time zone is used.
+A `ctz=` parameter in the link sets the time zone used for event times; otherwise the Mac's own time zone is used.
 
 ## Testing without a calendar
 
@@ -115,31 +119,46 @@ The [`examples/`](examples/) folder has importable `.ics` files built on the sam
 
 ## Configuration
 
-Read from user defaults at launch — quit and relaunch to apply. Change `io.github.macos-menubar-rollingcalendar` if you edit `BUNDLE_ID` in `build.sh`.
+Most of it is in the menu — click the strip:
+
+| Menu | What it does |
+|---|---|
+| **Time Range ▸** | How much time is visible: ±5 min through ±2 hours (default ±2 hours) |
+| **Timeline Width ▸** | How much menu bar the timeline takes: 100 pt to 450 pt in 50 pt steps (default 250 pt) |
+| **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
+| **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 240 pt, ~36 characters) |
+| **Restore Defaults** | Back to ±2 hours, 250 pt timeline, 240 pt labels, all labels on. Greyed out when nothing has been changed |
+
+The two are independent: **range** decides how much time you see, **width** decides how much space it gets. Together they set how big a block looks — at the default ±2 hours across 250 pt, a 15-minute block is about 16 pt wide; narrow the range to ±15 minutes at the same width and it grows to 125 pt. Each width option's tooltip does that arithmetic for you, and the note at the foot of the menu shows the current result.
+
+The rest is user defaults, read at launch. Change `io.github.macos-menubar-rollingcalendar` if you edit `BUNDLE_ID` in `build.sh`.
 
 ```bash
-# window: hours visible, centred on now (default 4 = ±2 h)
-defaults write io.github.macos-menubar-rollingcalendar windowHours -float 2
-
-# width: pixels per hour (default 90)
-defaults write io.github.macos-menubar-rollingcalendar pixelsPerHour -float 70
-
-# hide event titles inside blocks
-defaults write io.github.macos-menubar-rollingcalendar showTitles -bool false
+# thickness of the red now line, points (default 4)
+defaults write io.github.macos-menubar-rollingcalendar nowLineWidth -float 6
 
 # translucent tinted blocks instead of solid fills
 defaults write io.github.macos-menubar-rollingcalendar solidBlocks -bool false
 
-# gap between blocks, points (default 3)
-defaults write io.github.macos-menubar-rollingcalendar blockGap -float 5
+# gap between blocks, points (default 1)
+defaults write io.github.macos-menubar-rollingcalendar blockGap -float 3
 
-# countdown gutter width (default 54; 0 hides the countdown)
-defaults write io.github.macos-menubar-rollingcalendar countdownWidth -float 0
+# square the capsules off a bit (default 0 = capsule, radius is half the height)
+defaults write io.github.macos-menubar-rollingcalendar blockCornerRadius -float 3
 
-# text sizes; both default to the system menu bar size
+# text size; defaults to the system menu bar size
 defaults write io.github.macos-menubar-rollingcalendar titleFontSize -float 12
-defaults write io.github.macos-menubar-rollingcalendar countdownFontSize -float 12
 ```
+
+Total menu bar width is `timelineWidth` plus whatever the two labels currently need, so it changes through the day as event names change. `maxLabelWidth` is the ceiling on each side.
+
+### Which block gets the label when two overlap
+
+**Time decides first.** The left label names whatever ends soonest — that's the deadline that matters — and the right names whatever starts soonest. So a one-hour meeting inside an all-day block takes the label while it runs, and the all-day block takes it back afterwards.
+
+Only when two candidates tie *exactly* does chain position break it, preferring the block that belongs to a back-to-back run: its start meets another's end and its end meets another's start. That's your time-blocked backbone, and a meeting dropped on top of it chains to nothing, so the backbone keeps the label while 🔴 tells you something extra is sitting on it.
+
+If they're still tied — identical start *and* end, like two trainings both booked 1–2 — geometry can't separate them, and it falls back to shorter-first then alphabetical, purely so the choice is stable rather than flickering. Telling "my own time block" from "a meeting someone sent me" reliably needs the organiser/attendee fields from the Google API, which isn't wired up yet.
 
 Only today is loaded; other days are ignored, though events straddling midnight still render at the window edges. The calendar is re-fetched every 5 minutes and on wake; the strip redraws every second.
 
@@ -148,7 +167,7 @@ Only today is loaded; other days are ignored, though events straddling midnight 
 | File | Purpose |
 |---|---|
 | `Sources/main.swift` | Config, `NSStatusItem`, menu, dialogs, fetch/redraw timers |
-| `Sources/TimelineView.swift` | All drawing: ticks, now line, blocks, countdown |
+| `Sources/TimelineView.swift` | All drawing: capsules, now line, gutter labels, overlap badges |
 | `Sources/GoogleAuth.swift` | OAuth 2.0, PKCE + loopback redirect, Keychain storage |
 | `Sources/GoogleCalendarAPI.swift` | Calendar list, colour palette, events with `colorId` |
 | `Sources/ICS.swift` | iCalendar parser, recurrence expansion (RRULE, EXDATE, overrides) |

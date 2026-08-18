@@ -1,73 +1,105 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 470" width="760" height="470" font-family="-apple-system, SF Pro Text, Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600" font-family="-apple-system, SF Pro Text, Helvetica, Arial, sans-serif">
   <style>
-    .row     { font-size: 13px; fill: #1f2937; }
-    .dim     { font-size: 13px; fill: #9ca3af; }
-    .now     { font-size: 13px; fill: #0b8043; font-weight: 600; }
-    .hdr     { font-size: 13px; fill: #9ca3af; }
-    .note    { font-size: 11px; fill: #6b7280; }
-    .notebld { font-size: 11px; fill: #374151; font-weight: 600; }
-    .lead    { stroke: #d1d5db; stroke-width: 1; }
-    .sep     { stroke: #e5e7eb; stroke-width: 1; }
+    .row  { font-size: 13px; fill: #1f2937; }
+    .dim  { font-size: 13px; fill: #9ca3af; }
+    .now  { font-size: 13px; fill: #0b8043; font-weight: 600; }
+    .hdr  { font-size: 13px; fill: #9ca3af; }
+    .key  { font-size: 13px; fill: #9ca3af; }
+    .note { font-size: 11px; fill: #6b7280; }
+    .noteb{ font-size: 11px; fill: #374151; font-weight: 600; }
+    .lead { stroke: #d1d5db; stroke-width: 1; }
+    .sep  { stroke: #e5e7eb; stroke-width: 1; }
   </style>
 
-  <!-- menu panel -->
-  <rect x="16" y="16" width="380" height="438" rx="10" fill="#f7f7f8" stroke="#e5e7eb"/>
+  <rect x="16" y="16" width="400" height="568" rx="10" fill="#f7f7f8" stroke="#e5e7eb"/>
 
-  <text class="hdr" x="34" y="42">Wednesday, 12 August 2026</text>
-  <line class="sep" x1="26" y1="54" x2="386" y2="54"/>
+  <text class="hdr" x="34" y="42">Wednesday, 19 August 2026</text>
+  <line class="sep" x1="26" y1="54" x2="406" y2="54"/>
 
-  <!-- events with colour swatches -->
+  <!-- today's events, with colour swatches -->
   <rect x="34" y="66" width="10" height="10" rx="2.5" fill="#039be5"/>
-  <text class="dim" x="54" y="76">8:45 AM – 9:00 AM   Code review</text>
+  <text class="dim" x="54" y="76">8:00 AM – 9:00 AM   Code review</text>
 
-  <rect x="34" y="90" width="10" height="10" rx="2.5" fill="#039be5"/>
-  <text class="now" x="54" y="100">▶︎ 9:00 AM – 9:15 AM   Deep Work</text>
+  <rect x="34" y="90" width="10" height="10" rx="2.5" fill="#f6c026"/>
+  <text class="now" x="54" y="100">▶︎ 9:00 AM – 10:00 AM   Vendor Call</text>
 
-  <rect x="34" y="114" width="10" height="10" rx="2.5" fill="#f6c026"/>
-  <text class="row" x="54" y="124">9:15 AM – 9:30 AM   Afternoon break</text>
+  <rect x="34" y="114" width="10" height="10" rx="2.5" fill="#8e24aa"/>
+  <text class="now" x="54" y="124">▶︎ 9:00 AM – 6:00 PM   Out of office</text>
 
   <rect x="34" y="138" width="10" height="10" rx="2.5" fill="#f5511d"/>
-  <text class="row" x="54" y="148">9:30 AM – 9:45 AM   1:1 sync</text>
+  <text class="row" x="54" y="148">10:00 AM – 10:15 AM   Break</text>
 
-  <rect x="34" y="162" width="10" height="10" rx="2.5" fill="#8e24aa"/>
-  <text class="row" x="54" y="172">9:45 AM – 10:00 AM   Evening project</text>
+  <rect x="34" y="162" width="10" height="10" rx="2.5" fill="#039be5"/>
+  <text class="row" x="54" y="172">10:15 AM – 12:30 PM   ZD Chat+Email</text>
 
   <text class="dim" x="54" y="196">⋯</text>
 
-  <line class="sep" x1="26" y1="212" x2="386" y2="212"/>
+  <line class="sep" x1="26" y1="212" x2="406" y2="212"/>
   <text class="hdr" x="34" y="232">Updated 9:04:12 AM</text>
   <text class="row" x="34" y="256">Refresh Now</text>
-  <text class="dim" x="360" y="256" text-anchor="end">⌘R</text>
+  <text class="key" x="380" y="256" text-anchor="end">⌘R</text>
 
-  <line class="sep" x1="26" y1="270" x2="386" y2="270"/>
-  <text class="hdr" x="34" y="290">Calendar: Work</text>
-  <text class="row" x="34" y="314">Choose Calendar</text>
-  <text class="dim" x="360" y="314" text-anchor="end">▸</text>
-  <text class="row" x="34" y="338">Google Sign-In Setup…</text>
-  <text class="row" x="34" y="362">Sign Out of Google</text>
-  <text class="row" x="34" y="386">Demo Mode</text>
-  <text class="row" x="34" y="410">Open Google Calendar</text>
+  <!-- appearance -->
+  <line class="sep" x1="26" y1="270" x2="406" y2="270"/>
+  <text class="row" x="34" y="290">Time Range</text>
+  <text class="key" x="380" y="290" text-anchor="end">▸</text>
+  <text class="row" x="34" y="314">Timeline Width</text>
+  <text class="key" x="380" y="314" text-anchor="end">▸</text>
+  <text class="row" x="34" y="338">Labels</text>
+  <text class="key" x="380" y="338" text-anchor="end">▸</text>
+  <text class="row" x="34" y="362">Label Length</text>
+  <text class="key" x="380" y="362" text-anchor="end">▸</text>
+  <text class="dim" x="34" y="386">Restore Defaults</text>
 
-  <line class="sep" x1="26" y1="424" x2="386" y2="424"/>
-  <text class="row" x="34" y="444">Quit</text>
-  <text class="dim" x="360" y="444" text-anchor="end">⌘Q</text>
+  <!-- source -->
+  <line class="sep" x1="26" y1="400" x2="406" y2="400"/>
+  <text class="hdr" x="34" y="420">Calendar: Work</text>
+  <text class="row" x="34" y="444">Choose Calendar</text>
+  <text class="key" x="380" y="444" text-anchor="end">▸</text>
+  <text class="row" x="34" y="468">Demo Mode</text>
+  <text class="row" x="34" y="492">Google Sign-In Setup…</text>
+  <text class="row" x="34" y="516">Sign Out of Google</text>
+  <text class="row" x="34" y="540">Open Google Calendar</text>
+
+  <line class="sep" x1="26" y1="554" x2="406" y2="554"/>
+  <text class="row" x="34" y="574">Quit</text>
+  <text class="key" x="380" y="574" text-anchor="end">⌘Q</text>
 
   <!-- annotations -->
-  <path class="lead" d="M300 96 L430 96" fill="none"/>
-  <text class="notebld" x="438" y="93">Current block</text>
-  <text class="note" x="438" y="107">marked ▶︎ and green; past rows dimmed</text>
+  <path class="lead" d="M320 71 L450 71" fill="none"/>
+  <text class="noteb" x="458" y="68">Colour swatches</text>
+  <text class="note" x="458" y="82">match the capsules on the strip</text>
 
-  <path class="lead" d="M300 71 L430 71" fill="none"/>
-  <text class="notebld" x="438" y="68">Colour swatches</text>
-  <text class="note" x="438" y="82">match the blocks on the strip</text>
+  <path class="lead" d="M320 112 L450 112" fill="none"/>
+  <text class="noteb" x="458" y="102">Both current blocks marked ▶︎</text>
+  <text class="note" x="458" y="116">the strip labels whichever ends soonest;</text>
+  <text class="note" x="458" y="130">the dropdown always lists every one</text>
 
-  <path class="lead" d="M300 314 L430 314" fill="none"/>
-  <text class="notebld" x="438" y="311">Calendar picker</text>
-  <text class="note" x="438" y="325">every calendar on the account,</text>
-  <text class="note" x="438" y="338">with its own colour</text>
+  <path class="lead" d="M320 290 L450 290" fill="none"/>
+  <text class="noteb" x="458" y="287">Time Range</text>
+  <text class="note" x="458" y="301">±5 min to ±2 hours</text>
 
-  <path class="lead" d="M300 386 L430 386" fill="none"/>
-  <text class="notebld" x="438" y="383">Demo Mode</text>
-  <text class="note" x="438" y="397">synthetic 15-minute blocks —</text>
-  <text class="note" x="438" y="410">no Google account needed</text>
+  <path class="lead" d="M320 314 L450 314" fill="none"/>
+  <text class="noteb" x="458" y="325">Timeline Width</text>
+  <text class="note" x="458" y="339">100–450 pt; each option shows the</text>
+  <text class="note" x="458" y="353">block size it implies</text>
+
+  <path class="lead" d="M320 338 L450 338" fill="none"/>
+  <text class="noteb" x="458" y="377">Labels</text>
+  <text class="note" x="458" y="391">four toggles: name and time left,</text>
+  <text class="note" x="458" y="405">name and duration</text>
+
+  <path class="lead" d="M320 362 L450 362" fill="none"/>
+  <text class="noteb" x="458" y="429">Label Length</text>
+  <text class="note" x="458" y="443">where names start being shortened,</text>
+  <text class="note" x="458" y="457">annotated in characters</text>
+
+  <path class="lead" d="M320 386 L450 386" fill="none"/>
+  <text class="noteb" x="458" y="481">Restore Defaults</text>
+  <text class="note" x="458" y="495">greyed out until something changes</text>
+
+  <path class="lead" d="M320 468 L450 468" fill="none"/>
+  <text class="noteb" x="458" y="519">Demo Mode</text>
+  <text class="note" x="458" y="533">synthetic 15-minute blocks —</text>
+  <text class="note" x="458" y="547">no Google account needed</text>
 </svg>

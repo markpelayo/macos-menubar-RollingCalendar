@@ -53,35 +53,109 @@ enum Config {
 
     // MARK: Appearance
 
-    /// Total visible span in hours, centred on now.
-    static var windowHours: Double {
-        let v = UserDefaults.standard.double(forKey: "windowHours")
-        return v > 0 ? v : 4.0
+    // Factory settings, and what "Restore Defaults" puts back.
+    static let defaultWindowMinutes = 240.0   // ± 2 hours
+    static let defaultTimelineWidth = 250.0
+
+    /// Total visible span in minutes, centred on now (240 = 2 h each side).
+    static var windowMinutes: Double {
+        let v = UserDefaults.standard.double(forKey: "windowMinutes")
+        return v > 0 ? v : defaultWindowMinutes
     }
 
-    /// Pixels of menu bar width per hour.
-    static var pixelsPerHour: Double {
-        let v = UserDefaults.standard.double(forKey: "pixelsPerHour")
-        return v > 0 ? v : 90.0
+    static func setWindowMinutes(_ m: Double) {
+        UserDefaults.standard.set(m, forKey: "windowMinutes")
     }
 
-    static var showTitles: Bool {
-        UserDefaults.standard.object(forKey: "showTitles") as? Bool ?? true
+    /// Width of the timeline itself, in points. The gutters are sized to their
+    /// text, so the status item's total is this plus both labels.
+    static var timelineWidth: CGFloat {
+        let v = UserDefaults.standard.double(forKey: "timelineWidth")
+        return v > 0 ? CGFloat(min(max(v, 50), 900)) : CGFloat(defaultTimelineWidth)
     }
+
+    static func setTimelineWidth(_ w: Double) {
+        UserDefaults.standard.set(w, forKey: "timelineWidth")
+    }
+
+    /// Selectable widths: 100 pt up to 450 pt, in 50 pt steps.
+    static let timelineWidthChoices: [Double] = Array(stride(from: 100.0, through: 450.0, by: 50.0))
+
+    /// How wide one minute is at the current settings — what actually decides
+    /// how big a block looks.
+    static var pointsPerMinute: Double {
+        Double(timelineWidth) / max(windowMinutes, 1)
+    }
+
+    // MARK: Labels
+
+    /// What the two gutters show. All four are toggled from the menu.
+    static var showNowName: Bool { flag("showNowName") }
+    static var showNowTimeLeft: Bool { flag("showNowTimeLeft") }
+    static var showNextName: Bool { flag("showNextName") }
+    static var showNextDuration: Bool { flag("showNextDuration") }
+
+    private static func flag(_ key: String) -> Bool {
+        UserDefaults.standard.object(forKey: key) as? Bool ?? true
+    }
+
+    static func toggle(_ key: String) {
+        UserDefaults.standard.set(!flag(key), forKey: key)
+    }
+
+    private static let labelKeys = ["showNowName", "showNowTimeLeft", "showNextName", "showNextDuration"]
+
+    /// True when range, width and all four labels are already at factory settings,
+    /// which is when "Restore Defaults" has nothing to do.
+    static var isAppearanceDefault: Bool {
+        abs(windowMinutes - defaultWindowMinutes) < 0.01
+            && abs(Double(timelineWidth) - defaultTimelineWidth) < 0.01
+            && abs(Double(maxLabelWidth) - defaultMaxLabelWidth) < 0.01
+            && labelKeys.allSatisfy { flag($0) }
+    }
+
+    /// Back to ± 2 hours, 250 pt timeline, 240 pt labels, every label switched on.
+    static func restoreAppearanceDefaults() {
+        let d = UserDefaults.standard
+        d.removeObject(forKey: "windowMinutes")
+        d.removeObject(forKey: "timelineWidth")
+        d.removeObject(forKey: "maxLabelWidth")
+        for key in labelKeys { d.removeObject(forKey: key) }
+    }
+
+    /// Ceiling on each gutter, so one absurdly long event title can't swallow
+    /// the whole menu bar. Labels still size themselves to their content; this
+    /// is only the point at which the name starts being shortened.
+    static let defaultMaxLabelWidth = 240.0
+
+    static var maxLabelWidth: CGFloat {
+        let v = UserDefaults.standard.double(forKey: "maxLabelWidth")
+        return v > 0 ? CGFloat(v) : CGFloat(defaultMaxLabelWidth)
+    }
+
+    static func setMaxLabelWidth(_ w: Double) {
+        UserDefaults.standard.set(w, forKey: "maxLabelWidth")
+    }
+
+    static let maxLabelWidthChoices: [Double] = [100, 140, 180, 240, 300, 360, 480]
 
     /// Visual separation between neighbouring blocks, in points. Cosmetic only —
     /// it never changes an event's time or position.
     static var blockGap: CGFloat {
         let v = UserDefaults.standard.double(forKey: "blockGap")
-        return v > 0 ? CGFloat(v) : 3.0
+        return v > 0 ? CGFloat(v) : 1.0
     }
 
-    /// Width of the left gutter holding the countdown. 0 hides it.
-    static var countdownWidth: CGFloat {
-        if let v = UserDefaults.standard.object(forKey: "countdownWidth") as? Double {
-            return CGFloat(max(v, 0))
-        }
-        return 54
+    /// Thickness of the red "now" line, in points.
+    static var nowLineWidth: CGFloat {
+        let v = UserDefaults.standard.double(forKey: "nowLineWidth")
+        return v > 0 ? CGFloat(v) : 4
+    }
+
+    /// Corner radius of a block. 0 (the default) means capsule ends — a radius
+    /// of half the block's height.
+    static var blockCornerRadius: CGFloat {
+        CGFloat(max(UserDefaults.standard.double(forKey: "blockCornerRadius"), 0))
     }
 
     /// The size macOS uses for menu bar labels — matches other menu bar widgets.
@@ -93,11 +167,6 @@ enum Config {
         return v > 0 ? CGFloat(v) : menuBarFontSize
     }
 
-    /// Point size of the countdown in the left gutter.
-    static var countdownFontSize: CGFloat {
-        let v = UserDefaults.standard.double(forKey: "countdownFontSize")
-        return v > 0 ? CGFloat(v) : menuBarFontSize
-    }
 
     /// Synthetic 15-minute test blocks instead of a real calendar.
     /// On by default until a real calendar is set up, so a fresh install shows
@@ -118,8 +187,8 @@ enum Config {
         UserDefaults.standard.object(forKey: "solidBlocks") as? Bool ?? true
     }
 
-    /// Tick marks and event times use the `ctz=` time zone from the calendar
-    /// link when present, otherwise the Mac's own time zone.
+    /// Event times use the `ctz=` time zone from the calendar link when
+    /// present, otherwise the Mac's own time zone.
     static var displayTimeZone: TimeZone {
         guard let input = calendarInput else { return .current }
         return CalendarSource.timeZone(from: input) ?? .current
@@ -146,9 +215,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var eventPalette: [String: String] = [:]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Timeline width plus the countdown gutter on the left.
-        let width = CGFloat(Config.windowHours * Config.pixelsPerHour) + Config.countdownWidth
-        statusItem = NSStatusBar.system.statusItem(withLength: width)
+        // Width is recomputed from the label text on every tick — see resize().
+        statusItem = NSStatusBar.system.statusItem(withLength: Config.timelineWidth)
 
         guard let button = statusItem.button else { return }
         timeline.frame = button.bounds
@@ -162,6 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
 
         redrawTimer = Timer.scheduledTimer(withTimeInterval: Config.redrawInterval, repeats: true) { [weak self] _ in
+            self?.resize()
             self?.timeline.needsDisplay = true
         }
         fetchTimer = Timer.scheduledTimer(withTimeInterval: Config.refetchInterval, repeats: true) { [weak self] _ in
@@ -175,6 +244,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ) { [weak self] _ in self?.fetch() }
 
         fetch()
+    }
+
+    /// Grow or shrink the status item so both event names fit without
+    /// truncating. Only touched when it actually changes, since resizing a
+    /// status item forces a menu bar relayout.
+    private func resize() {
+        let wanted = timeline.desiredWidth()
+        if abs(statusItem.length - wanted) > 1 {
+            statusItem.length = wanted
+        }
     }
 
     // MARK: - Fetching
@@ -197,7 +276,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let now = Date()
         let dayStart = cal.startOfDay(for: now)
         let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86400)
-        let margin = Config.windowHours * 3600
+        // Overshoot the day so blocks straddling midnight still render, and so
+        // the "next up" label can see past the end of the visible window.
+        let margin = max(Config.windowMinutes * 60, 3600)
         return (dayStart, dayEnd, dayStart.addingTimeInterval(-margin), dayEnd.addingTimeInterval(margin))
     }
 
@@ -396,6 +477,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add("Refresh Now", #selector(refreshNow), to: menu, key: "r")
         menu.addItem(.separator())
 
+        // --- Appearance ---
+        let range = NSMenuItem(title: "Time Range", action: nil, keyEquivalent: "")
+        range.submenu = timeRangeMenu()
+        menu.addItem(range)
+
+        let width = NSMenuItem(title: "Timeline Width", action: nil, keyEquivalent: "")
+        width.submenu = timelineWidthMenu()
+        menu.addItem(width)
+
+        let labels = NSMenuItem(title: "Labels", action: nil, keyEquivalent: "")
+        labels.submenu = labelsMenu()
+        menu.addItem(labels)
+
+        let length = NSMenuItem(title: "Label Length", action: nil, keyEquivalent: "")
+        length.submenu = labelLengthMenu()
+        menu.addItem(length)
+
+        let restore = add("Restore Defaults", #selector(restoreDefaults), to: menu)
+        restore.isEnabled = !Config.isAppearanceDefault
+        restore.toolTip = restore.isEnabled
+            ? "Back to ± 2 hours, 250 pt, and all labels on"
+            : "Already at the default settings"
+
+        menu.addItem(.separator())
+
         // --- Which source is live ---
         if Config.demoMode {
             addInfo("Calendar: demo blocks (test data)", to: menu)
@@ -437,6 +543,129 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    }
+
+    /// How much time is visible, as ± either side of now.
+    private func timeRangeMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        let presets: [(String, Double)] = [
+            ("± 5 minutes", 10), ("± 10 minutes", 20), ("± 15 minutes", 30),
+            ("± 30 minutes", 60), ("± 1 hour", 120), ("± 2 hours", 240)
+        ]
+        for (title, minutes) in presets {
+            let item = NSMenuItem(title: title, action: #selector(chooseTimeRange(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = minutes
+            item.state = abs(Config.windowMinutes - minutes) < 0.01 ? .on : .off
+            sub.addItem(item)
+        }
+        sub.addItem(.separator())
+        let note = NSMenuItem(title: "A wider range shows more, at a smaller size",
+                              action: nil, keyEquivalent: "")
+        note.isEnabled = false
+        sub.addItem(note)
+        return sub
+    }
+
+    /// How much menu bar the timeline occupies, smallest to largest.
+    private func timelineWidthMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        let choices = Config.timelineWidthChoices
+
+        for (index, width) in choices.enumerated() {
+            var title = "\(Int(width)) pt"
+            if index == 0 { title += "  —  smallest" }
+            if index == choices.count - 1 { title += "  —  largest" }
+
+            let item = NSMenuItem(title: title, action: #selector(chooseTimelineWidth(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = width
+            item.state = abs(Double(Config.timelineWidth) - width) < 0.01 ? .on : .off
+            let blockWidth = Int((width / max(Config.windowMinutes, 1)) * 15)
+            item.toolTip = "A 15-minute block would be \(blockWidth) pt wide at the current time range"
+            sub.addItem(item)
+        }
+
+        sub.addItem(.separator())
+        let note = NSMenuItem(
+            title: "Now: a 15-minute block is \(Int(Config.pointsPerMinute * 15)) pt wide",
+            action: nil, keyEquivalent: "")
+        note.isEnabled = false
+        sub.addItem(note)
+        return sub
+    }
+
+    /// How long an event name may get before it's shortened with an ellipsis.
+    /// Each option is annotated with the character count it works out to, since
+    /// points aren't much use for judging that by eye.
+    private func labelLengthMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        // Average character width in the actual menu bar font, so the estimates
+        // track the font size rather than being guesses.
+        let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz "
+        let perChar = max(TimelineView.width(of: alphabet) / CGFloat(alphabet.count), 1)
+        let sample = "Quarterly Planning Review"
+
+        for width in Config.maxLabelWidthChoices {
+            let characters = Int((CGFloat(width) / perChar).rounded())
+            var title = "\(Int(width)) pt  —  about \(characters) characters"
+            if abs(width - Config.defaultMaxLabelWidth) < 0.01 { title += "  (default)" }
+
+            let item = NSMenuItem(title: title, action: #selector(chooseLabelLength(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = width
+            item.state = abs(Double(Config.maxLabelWidth) - width) < 0.01 ? .on : .off
+            item.toolTip = characters >= sample.count
+                ? "“\(sample)” fits"
+                : "“\(sample)” would show as “\(String(sample.prefix(max(characters - 1, 1))))…”"
+            sub.addItem(item)
+        }
+
+        sub.addItem(.separator())
+        let note = NSMenuItem(title: "Longer names are shortened; the time and 🔴 are never cut",
+                              action: nil, keyEquivalent: "")
+        note.isEnabled = false
+        sub.addItem(note)
+        return sub
+    }
+
+    /// What the text either side of the timeline shows.
+    private func labelsMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        func header(_ t: String) {
+            let item = NSMenuItem(title: t, action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            sub.addItem(item)
+        }
+        func toggle(_ title: String, _ key: String, _ on: Bool) {
+            let item = NSMenuItem(title: title, action: #selector(toggleLabel(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = key
+            item.state = on ? .on : .off
+            item.indentationLevel = 1
+            sub.addItem(item)
+        }
+
+        header("Left — happening now")
+        toggle("Block name", "showNowName", Config.showNowName)
+        toggle("Time left", "showNowTimeLeft", Config.showNowTimeLeft)
+        sub.addItem(.separator())
+        header("Right — up next")
+        toggle("Block name", "showNextName", Config.showNextName)
+        toggle("How long it runs", "showNextDuration", Config.showNextDuration)
+        sub.addItem(.separator())
+        let note = NSMenuItem(title: "Overlap warnings always show", action: nil, keyEquivalent: "")
+        note.isEnabled = false
+        sub.addItem(note)
+        return sub
     }
 
     private func calendarPickerMenu() -> NSMenu {
@@ -510,6 +739,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func resetCalendar() {
         Config.setCalendar(nil)
         reloadAfterSourceChange()
+    }
+
+    @objc private func chooseTimeRange(_ sender: NSMenuItem) {
+        guard let minutes = sender.representedObject as? Double else { return }
+        Config.setWindowMinutes(minutes)
+        redrawNow()
+    }
+
+    @objc private func chooseTimelineWidth(_ sender: NSMenuItem) {
+        guard let width = sender.representedObject as? Double else { return }
+        Config.setTimelineWidth(width)
+        redrawNow()
+    }
+
+    @objc private func restoreDefaults() {
+        Config.restoreAppearanceDefaults()
+        redrawNow()
+    }
+
+    @objc private func chooseLabelLength(_ sender: NSMenuItem) {
+        guard let width = sender.representedObject as? Double else { return }
+        Config.setMaxLabelWidth(width)
+        redrawNow()
+    }
+
+    @objc private func toggleLabel(_ sender: NSMenuItem) {
+        guard let key = sender.representedObject as? String else { return }
+        Config.toggle(key)
+        redrawNow()
+    }
+
+    /// Appearance changed — resize and repaint, no refetch needed.
+    private func redrawNow() {
+        resize()
+        timeline.needsDisplay = true
     }
 
     @objc private func toggleDemoMode() {
