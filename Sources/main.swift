@@ -34,6 +34,83 @@ enum Config {
         }
     }
 
+    // MARK: Saved calendars (feed mode)
+
+    /// A named calendar link, so several can be kept and switched between.
+    struct CalendarProfile {
+        var name: String
+        var link: String
+    }
+
+    private static let profilesKey = "calendarProfiles"
+    private static let activeProfileKey = "activeCalendarProfile"
+
+    static var profiles: [CalendarProfile] {
+        let raw = UserDefaults.standard.array(forKey: profilesKey) as? [[String: String]] ?? []
+        return raw.compactMap {
+            guard let name = $0["name"], let link = $0["link"] else { return nil }
+            return CalendarProfile(name: name, link: link)
+        }
+    }
+
+    static func setProfiles(_ list: [CalendarProfile]) {
+        UserDefaults.standard.set(list.map { ["name": $0.name, "link": $0.link] }, forKey: profilesKey)
+    }
+
+    /// Which saved calendar is in use, if the current link came from one.
+    static var activeProfileName: String? {
+        UserDefaults.standard.string(forKey: activeProfileKey)
+    }
+
+    /// What to call the current calendar in the menu.
+    static var calendarDisplayName: String? {
+        if let name = activeProfileName { return name }
+        guard let input = calendarInput else { return nil }
+        return CalendarSource.label(for: input)
+    }
+
+    static func activate(_ profile: CalendarProfile) {
+        setCalendar(profile.link)
+        UserDefaults.standard.set(profile.name, forKey: activeProfileKey)
+    }
+
+    /// Adds (or updates, if the name is reused) and switches to it.
+    static func addProfile(name: String, link: String) {
+        var list = profiles.filter { $0.name != name }
+        list.append(CalendarProfile(name: name, link: link))
+        setProfiles(list.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending })
+        activate(CalendarProfile(name: name, link: link))
+    }
+
+    static func renameProfile(_ old: String, to newName: String) {
+        setProfiles(profiles.map {
+            $0.name == old ? CalendarProfile(name: newName, link: $0.link) : $0
+        })
+        if activeProfileName == old {
+            UserDefaults.standard.set(newName, forKey: activeProfileKey)
+        }
+    }
+
+    /// Removes a saved calendar, moving to another one if the active was removed.
+    static func removeProfile(named name: String) {
+        let remaining = profiles.filter { $0.name != name }
+        setProfiles(remaining)
+        guard activeProfileName == name else { return }
+        UserDefaults.standard.removeObject(forKey: activeProfileKey)
+        if let next = remaining.first {
+            activate(next)
+        } else {
+            setCalendar(nil)
+        }
+    }
+
+    /// A link saved before profiles existed becomes a profile, so nothing is
+    /// silently lost and it shows up in the list like any other.
+    static func adoptLegacyCalendarIfNeeded() {
+        guard profiles.isEmpty, let input = calendarInput else { return }
+        addProfile(name: CalendarSource.label(for: input), link: input)
+    }
+
     // MARK: Google mode
 
     /// Which Google calendar to read. "primary" is the account's own calendar —
@@ -54,10 +131,10 @@ enum Config {
     // MARK: Appearance
 
     // Factory settings, and what "Restore Defaults" puts back.
-    static let defaultWindowMinutes = 240.0   // ± 2 hours
+    static let defaultWindowMinutes = 120.0   // ± 1 hour
     static let defaultTimelineWidth = 250.0
 
-    /// Total visible span in minutes, centred on now (240 = 2 h each side).
+    /// Total visible span in minutes, centred on now (120 = 1 h each side).
     static var windowMinutes: Double {
         let v = UserDefaults.standard.double(forKey: "windowMinutes")
         return v > 0 ? v : defaultWindowMinutes
@@ -114,7 +191,7 @@ enum Config {
             && labelKeys.allSatisfy { flag($0) }
     }
 
-    /// Back to ± 2 hours, 250 pt timeline, 240 pt labels, every label switched on.
+    /// Back to ± 1 hour, 250 pt timeline, 300 pt labels, every label switched on.
     static func restoreAppearanceDefaults() {
         let d = UserDefaults.standard
         d.removeObject(forKey: "windowMinutes")
@@ -126,7 +203,7 @@ enum Config {
     /// Ceiling on each gutter, so one absurdly long event title can't swallow
     /// the whole menu bar. Labels still size themselves to their content; this
     /// is only the point at which the name starts being shortened.
-    static let defaultMaxLabelWidth = 240.0
+    static let defaultMaxLabelWidth = 300.0
 
     static var maxLabelWidth: CGFloat {
         let v = UserDefaults.standard.double(forKey: "maxLabelWidth")
@@ -194,8 +271,37 @@ enum Config {
         return CalendarSource.timeZone(from: input) ?? .current
     }
 
+    // MARK: Debug time
+
+    /// Seconds added to the real clock. 0 means "use the real time".
+    static var debugOffset: TimeInterval {
+        UserDefaults.standard.double(forKey: "debugOffset")
+    }
+
+    static var isSimulating: Bool { debugOffset != 0 }
+
+    /// Stored as an offset rather than an absolute date, so the simulated clock
+    /// keeps running instead of standing still.
+    static func setDebugTime(_ date: Date) {
+        UserDefaults.standard.set(date.timeIntervalSinceNow, forKey: "debugOffset")
+    }
+
+    static func clearDebugTime() {
+        UserDefaults.standard.removeObject(forKey: "debugOffset")
+    }
+
     static let redrawInterval: TimeInterval = 1       // slide the strip / tick the countdown
     static let refetchInterval: TimeInterval = 300    // re-read the calendar
+}
+
+// MARK: - Clock
+
+/// Everything that asks "what time is it?" goes through here, so the whole app
+/// can be moved to a different moment for testing. The offset is applied to the
+/// real clock rather than freezing it, so a simulated day still advances —
+/// blocks keep sliding and countdowns keep ticking.
+enum Clock {
+    static var now: Date { Date().addingTimeInterval(Config.debugOffset) }
 }
 
 // MARK: - App
@@ -239,11 +345,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         RunLoop.main.add(redrawTimer!, forMode: .common)
         RunLoop.main.add(fetchTimer!, forMode: .common)
 
+        installEditMenu()
+        Config.adoptLegacyCalendarIfNeeded()
+
         _ = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in self?.fetch() }
 
         fetch()
+    }
+
+    /// A menu bar app has no menu bar of its own, so the standard editing
+    /// shortcuts have nothing to route through and ⌘V does nothing in a text
+    /// field. Installing an Edit menu — never displayed anywhere — restores
+    /// cut, copy, paste, select all and undo in every dialog.
+    private func installEditMenu() {
+        let mainMenu = NSMenu()
+
+        // macOS expects the first item to be the application menu.
+        let appItem = NSMenuItem()
+        appItem.submenu = NSMenu()
+        mainMenu.addItem(appItem)
+
+        let editItem = NSMenuItem()
+        let edit = NSMenu(title: "Edit")
+        editItem.submenu = edit
+        mainMenu.addItem(editItem)
+
+        // Undo and redo are UndoManager actions with no Swift method to point
+        // #selector at, so those two stay as string selectors.
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        edit.addItem(.separator())
+        // Named on NSText, but dispatched down the responder chain to whichever
+        // field is focused.
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+
+        NSApp.mainMenu = mainMenu
     }
 
     /// Grow or shrink the status item so both event names fit without
@@ -273,7 +415,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func dayBounds() -> (dayStart: Date, dayEnd: Date, from: Date, to: Date) {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = Config.displayTimeZone
-        let now = Date()
+        let now = Clock.now
         let dayStart = cal.startOfDay(for: now)
         let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86400)
         // Overshoot the day so blocks straddling midnight still render, and so
@@ -286,7 +428,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func loadDemoEvents() {
         let bounds = dayBounds()
-        let all = DemoData.events(around: Date(), timeZone: Config.displayTimeZone)
+        let all = DemoData.events(around: Clock.now, timeZone: Config.displayTimeZone)
         timeline.errorMessage = nil
         timeline.events = all.filter { $0.intersects(bounds.from, bounds.to) }
         todaysEvents = all.filter { $0.intersects(bounds.dayStart, bounds.dayEnd) }
@@ -416,7 +558,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func applyICS(_ ics: String) {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = Config.displayTimeZone
-        let today = Date()
+        let today = Clock.now
         let days = [-1, 0, 1].compactMap { cal.date(byAdding: .day, value: $0, to: today) }
 
         let all = ICS.events(from: ics, days: days, calendar: cal)
@@ -440,7 +582,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let dayFormatter = DateFormatter()
         dayFormatter.dateStyle = .full
         dayFormatter.timeZone = Config.displayTimeZone
-        addInfo(dayFormatter.string(from: Date()), to: menu)
+        addInfo(dayFormatter.string(from: Clock.now)
+                    + (Config.isSimulating ? "   ·   simulated" : ""), to: menu)
+
+        // --- Debug time ---
+        if Config.isSimulating {
+            let stamp = DateFormatter()
+            stamp.locale = Locale(identifier: "en_US_POSIX")
+            stamp.dateFormat = "MMM d, h:mm:ss a"
+            stamp.timeZone = Config.displayTimeZone
+            let item = add("⏱ Debug Time: \(stamp.string(from: Clock.now))…",
+                           #selector(pickDebugTime), to: menu)
+            item.toolTip = "Pretending it's this moment. The simulated clock keeps running."
+            add("Reset to Current Time", #selector(resetDebugTime), to: menu)
+        } else {
+            let item = add("Debug Time…", #selector(pickDebugTime), to: menu)
+            item.toolTip = "Jump the app to any date and time to see how the strip looks then"
+        }
+
         menu.addItem(.separator())
 
         // --- Today's events ---
@@ -449,7 +608,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else if todaysEvents.isEmpty {
             addInfo("No events today", to: menu)
         } else {
-            let now = Date()
+            let now = Clock.now
             for ev in todaysEvents {
                 let time = ev.isAllDay ? "All day" : "\(df.string(from: ev.start)) – \(df.string(from: ev.end))"
                 let item = NSMenuItem(title: "\(time)   \(ev.title)", action: nil, keyEquivalent: "")
@@ -497,7 +656,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let restore = add("Restore Defaults", #selector(restoreDefaults), to: menu)
         restore.isEnabled = !Config.isAppearanceDefault
         restore.toolTip = restore.isEnabled
-            ? "Back to ± 2 hours, 250 pt, and all labels on"
+            ? "Back to ± 1 hour, a 250 pt timeline, 300 pt labels and all labels on"
             : "Already at the default settings"
 
         menu.addItem(.separator())
@@ -510,8 +669,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let picker = NSMenuItem(title: "Choose Calendar", action: nil, keyEquivalent: "")
             picker.submenu = calendarPickerMenu()
             menu.addItem(picker)
-        } else if let input = Config.calendarInput {
-            addInfo("Calendar: \(CalendarSource.label(for: input)) (public feed)", to: menu)
+        } else if let name = Config.calendarDisplayName {
+            addInfo("Calendar: \(name) (public feed)", to: menu)
         } else {
             addInfo("No calendar set up yet", to: menu)
         }
@@ -532,10 +691,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             } else {
                 add("Set Up Google Sign-In…  (for colours)", #selector(setUpGoogle), to: menu)
             }
-            add(Config.hasCalendarInput ? "Change Calendar…" : "Set Calendar Link…",
-                #selector(changeCalendar), to: menu)
+            if Config.profiles.isEmpty {
+                add("Add Calendar…", #selector(addCalendarProfile), to: menu)
+            } else {
+                let saved = NSMenuItem(title: "Saved Calendars", action: nil, keyEquivalent: "")
+                saved.submenu = savedCalendarsMenu()
+                menu.addItem(saved)
+            }
             if Config.hasCalendarInput {
-                add("Clear Calendar Link", #selector(resetCalendar), to: menu)
                 add("Copy Feed URL", #selector(copyFeedURL), to: menu)
             }
         }
@@ -595,6 +758,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             action: nil, keyEquivalent: "")
         note.isEnabled = false
         sub.addItem(note)
+        return sub
+    }
+
+    /// Saved calendar links, one per line, plus the housekeeping actions.
+    private func savedCalendarsMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        let active = Config.activeProfileName
+        for profile in Config.profiles {
+            let row = CalendarRowView(title: profile.name, isActive: profile.name == active)
+            let name = profile.name
+            row.onSelect = { [weak self] in self?.activateProfile(named: name) }
+            row.onRename = { [weak self] in self?.renameProfile(named: name) }
+            row.onRemove = { [weak self] in self?.confirmRemoveProfile(named: name) }
+
+            let item = NSMenuItem()
+            item.view = row
+            item.toolTip = profile.link
+            sub.addItem(item)
+        }
+
+        sub.addItem(.separator())
+        let add = NSMenuItem(title: "Add Calendar…", action: #selector(addCalendarProfile),
+                             keyEquivalent: "")
+        add.target = self
+        sub.addItem(add)
         return sub
     }
 
@@ -736,11 +926,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSPasteboard.general.setString(ics, forType: .string)
     }
 
-    @objc private func resetCalendar() {
-        Config.setCalendar(nil)
-        reloadAfterSourceChange()
-    }
-
     @objc private func chooseTimeRange(_ sender: NSMenuItem) {
         guard let minutes = sender.representedObject as? Double else { return }
         Config.setWindowMinutes(minutes)
@@ -756,6 +941,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func restoreDefaults() {
         Config.restoreAppearanceDefaults()
         redrawNow()
+    }
+
+    // MARK: Debug time
+
+    @objc private func pickDebugTime() {
+        NSApp.activate(ignoringOtherApps: true)
+
+        let alert = NSAlert()
+        alert.messageText = "Debug Time"
+        alert.informativeText = """
+            Move the app to any moment, so you can see how the strip looks then \
+            without waiting for it — handy for checking overlaps, long blocks and \
+            the ends of the day.
+
+            The simulated clock keeps running from the moment you pick, so blocks \
+            still slide and countdowns still tick. Events are re-fetched for the \
+            simulated date.
+            """
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Simulate")
+        alert.addButton(withTitle: "Use Current Time")
+        alert.addButton(withTitle: "Cancel")
+
+        let picker = NSDatePicker(frame: NSRect(x: 0, y: 0, width: 320, height: 26))
+        picker.datePickerStyle = .textFieldAndStepper
+        picker.datePickerElements = [.yearMonthDay, .hourMinuteSecond]
+        picker.timeZone = Config.displayTimeZone
+        picker.dateValue = Clock.now
+        alert.accessoryView = picker
+        alert.window.initialFirstResponder = picker
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            Config.setDebugTime(picker.dateValue)
+        case .alertSecondButtonReturn:
+            Config.clearDebugTime()
+        default:
+            return   // cancelled: leave whatever was set alone
+        }
+        // The simulated date may be a different day, so reload rather than redraw.
+        reloadAfterSourceChange()
+    }
+
+    @objc private func resetDebugTime() {
+        Config.clearDebugTime()
+        reloadAfterSourceChange()
     }
 
     @objc private func chooseLabelLength(_ sender: NSMenuItem) {
@@ -866,76 +1097,144 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         signInToGoogle()
     }
 
-    private static func fieldLabel(_ text: String, y: CGFloat) -> NSTextField {
+    private static func fieldLabel(_ text: String, y: CGFloat, width: CGFloat = 88) -> NSTextField {
         let label = NSTextField(labelWithString: text)
-        label.frame = NSRect(x: 0, y: y, width: 88, height: 16)
+        label.frame = NSRect(x: 0, y: y, width: width, height: 16)
         label.alignment = .right
         label.font = NSFont.systemFont(ofSize: 11)
         label.textColor = .secondaryLabelColor
         return label
     }
 
-    // MARK: Public feed editing
+    // MARK: Saved calendars
 
-    @objc private func changeCalendar() {
+    private func activateProfile(named name: String) {
+        guard let profile = Config.profiles.first(where: { $0.name == name }) else { return }
+        Config.activate(profile)
+        Config.setDemoMode(false)   // a real calendar wins over test data
+        reloadAfterSourceChange()
+    }
+
+    @objc private func addCalendarProfile() {
         NSApp.activate(ignoringOtherApps: true)
-        var prefill = Config.calendarInput ?? ""
+        var prefillName = ""
+        var prefillLink = ""
 
         while true {
-            let alert = makeCalendarAlert()
-            guard let field = alert.accessoryView as? NSTextField else { return }
-            field.stringValue = prefill
-            alert.window.initialFirstResponder = field
+            let alert = NSAlert()
+            alert.messageText = "Add Calendar"
+            alert.informativeText = """
+                Give it a name you'll recognise in the menu, then paste any of these:
+                  •  a Google Calendar embed link (…/embed?src=… or …/newembed?src=…)
+                  •  a public iCal feed URL ending in .ics
+                  •  a webcal:// link
+                  •  a calendar address, e.g. you@gmail.com
+                  •  a local file, e.g. file:///path/to/test.ics
+
+                Public feeds carry no colour information. Sign in with Google instead
+                if you want each block in its Google Calendar colour.
+                """
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "Save")
+            alert.addButton(withTitle: "Cancel")
+
+            let container = NSView(frame: NSRect(x: 0, y: 0, width: 470, height: 66))
+            let nameField = NSTextField(frame: NSRect(x: 62, y: 38, width: 408, height: 24))
+            nameField.placeholderString = "Work"
+            nameField.stringValue = prefillName
+            let linkField = NSTextField(frame: NSRect(x: 62, y: 4, width: 408, height: 24))
+            linkField.placeholderString = Config.examplePlaceholder
+            linkField.lineBreakMode = .byTruncatingTail
+            linkField.stringValue = prefillLink
+            container.addSubview(Self.fieldLabel("Name", y: 42, width: 58))
+            container.addSubview(nameField)
+            container.addSubview(Self.fieldLabel("Link", y: 8, width: 58))
+            container.addSubview(linkField)
+            alert.accessoryView = container
+            alert.window.initialFirstResponder = nameField
 
             guard alert.runModal() == .alertFirstButtonReturn else { return }
 
-            let entered = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            if entered.isEmpty {
-                Config.setCalendar(nil)
-                reloadAfterSourceChange()
-                return
+            let link = linkField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            var name = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if name.isEmpty, !link.isEmpty { name = CalendarSource.label(for: link) }
+
+            var problem: String?
+            if link.isEmpty {
+                problem = "Paste a calendar link."
+            } else if name.isEmpty {
+                problem = "Give this calendar a name."
+            } else {
+                problem = CalendarSource.problem(with: link)
             }
-            if let problem = CalendarSource.problem(with: entered) {
+
+            if let problem {
                 let retry = NSAlert()
                 retry.alertStyle = .warning
-                retry.messageText = "Can't use that calendar link"
+                retry.messageText = "Can't save that calendar"
                 retry.informativeText = problem
                 retry.addButton(withTitle: "Try Again")
                 retry.addButton(withTitle: "Cancel")
                 guard retry.runModal() == .alertFirstButtonReturn else { return }
-                prefill = entered   // keep what they typed so they can correct it
+                prefillName = name          // keep what they typed so they can correct it
+                prefillLink = link
                 continue
             }
-            Config.setCalendar(entered)
-            Config.setDemoMode(false)   // a real calendar wins over test data
+
+            Config.addProfile(name: name, link: link)
+            Config.setDemoMode(false)
             reloadAfterSourceChange()
             return
         }
     }
 
-    private func makeCalendarAlert() -> NSAlert {
-        let alert = NSAlert()
-        alert.messageText = "Change Calendar"
-        alert.informativeText = """
-            Paste any of these:
-              •  a Google Calendar embed link (…/embed?src=… or …/newembed?src=…)
-              •  a public iCal feed URL ending in .ics
-              •  a webcal:// link
-              •  a calendar address, e.g. you@gmail.com
-              •  a local file, e.g. file:///Users/you/test.ics
+    /// Pencil icon on a row.
+    private func renameProfile(named current: String) {
+        NSApp.activate(ignoringOtherApps: true)
 
-            Public feeds carry no colour information. Sign in with Google instead
-            if you want each block in its Google Calendar colour.
-            """
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Save")
+        let alert = NSAlert()
+        alert.messageText = "Rename Calendar"
+        alert.informativeText = "What should “\(current)” be called?"
+        alert.addButton(withTitle: "Rename")
         alert.addButton(withTitle: "Cancel")
 
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 420, height: 24))
-        field.placeholderString = Config.examplePlaceholder
-        field.lineBreakMode = .byTruncatingTail
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        field.stringValue = current
         alert.accessoryView = field
-        return alert
+        alert.window.initialFirstResponder = field
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name != current else { return }
+        Config.renameProfile(current, to: name)
+    }
+
+    /// ✕ icon on a row — always confirms first.
+    private func confirmRemoveProfile(named name: String) {
+        NSApp.activate(ignoringOtherApps: true)
+        let isActive = Config.activeProfileName == name
+        let isLast = Config.profiles.count == 1
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Remove “\(name)”?"
+        if isLast {
+            alert.informativeText = "This is your only saved calendar, so nothing will be shown "
+                + "until you add another. Only the saved link is forgotten — your calendar itself "
+                + "is untouched."
+        } else if isActive {
+            alert.informativeText = "It's the one in use, so the next saved calendar will take "
+                + "over. Only the saved link is forgotten — your calendar itself is untouched."
+        } else {
+            alert.informativeText = "Only the saved link is forgotten — your calendar itself is "
+                + "untouched."
+        }
+        alert.addButton(withTitle: "Remove")
+        alert.addButton(withTitle: "Cancel")
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        Config.removeProfile(named: name)
+        reloadAfterSourceChange()
     }
 
     // MARK: Shared

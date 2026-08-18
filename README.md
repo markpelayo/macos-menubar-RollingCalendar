@@ -10,31 +10,23 @@ A macOS menu bar app that draws today's calendar as a horizontal timeline scroll
 
 ## The UI
 
-![Rolling Calendar menu bar strip](docs/ui-strip.svg)
+![Rolling Calendar running in the macOS menu bar](docs/ui-strip.png)
 
 Time flows right-to-left. The red line is fixed at the centre and always marks now, so blocks drift leftward as the day passes. There are no tick marks or gridlines — just past, now and future.
 
-- **Left label** — the block you're in and how much of it is left, e.g. `ZD Chat+Email (5m)`, turning red in the final two minutes
+- **Left label** — the block you're in and how much of it is left, e.g. `Deep Work (5m)`, turning red in the final two minutes
 - **Right label** — what's next and how long that block runs for, e.g. `(16h) Out of office`
-- **Labels size themselves to the name** — the menu bar item grows and shrinks as event names change, up to `maxLabelWidth` (240 pt). Past that the *name* is shortened with an ellipsis; the countdown and the warning badge are never cut, since a truncated countdown would be useless. The capsules carry no text, as it would only repeat the labels
+- **Labels size themselves to the name** — the menu bar item grows and shrinks as event names change, up to `maxLabelWidth` (300 pt by default). Past that the *name* is shortened with an ellipsis; the countdown and the warning badge are never cut, since a truncated countdown would be useless. The capsules carry no text, as it would only repeat the labels
 - **Coloured capsules** — your events in their real Google Calendar colours, outlined so neighbours stay distinct, separated by a 1 pt gap
 - **Past is paler** — the same colour, lightened once it's behind the line, with a lighter outline to match. A block in progress fades from the left as it elapses, so you can see how far through it you are
 - **Double-booking is flagged, not stacked** — the strip stays one row, and the badge's *side* tells you when the clash is. On the **right** it hasn't reached now yet: `(1h) Vendor Call 🔴(2)`. On the **left** it's live: `🔴(2) Vendor Call (59m)` — two things want you right this second. A clash appears on the right, crosses to the left as it reaches the now line, and clears when it's over. Open the dropdown for the full list
-- **Window** — ±2 hours across 250 pt by default, plus however much the two labels need. Both are adjustable from the menu
-
-Clicking the strip opens today's schedule:
-
-![Rolling Calendar dropdown menu](docs/ui-menu.svg)
-
-### On a real Mac
-
-<img src="docs/demo-mode-screenshot.png" alt="The app running in Demo Mode: green blocks in the menu bar with a red now line, and the dropdown listing today's blocks" width="480">
-
-The green boxes are the timeblocks, the red line through them is now, and the dropdown lists the day in full with the current block marked ▶︎ and past ones dimmed. This is [Demo Mode](#testing-without-a-calendar), so every block is the same green and the schedule is synthetic — a real calendar gives each block its own colour.
-
-> Taken from an earlier build: it predates the capsule shape, the block outlines and the current label format. The diagrams above reflect what you'll actually see.
+- **Window** — ±1 hour across 250 pt by default, plus however much the two labels need. Both are adjustable from the menu
 
 The strip is deliberately small — it lives in the menu bar and is meant to be read at a glance, not studied.
+
+Clicking it opens today's schedule, and everything else lives in that menu:
+
+![Rolling Calendar dropdown menu](docs/ui-menu.svg)
 
 ## Quick start
 
@@ -95,7 +87,24 @@ The refresh token is stored in your login Keychain. Colours resolve in this orde
 
 ### Public `.ics` feed
 
-Strip → **Set Calendar Link…**, and paste any of these — the app works out the feed URL:
+Feed calendars are saved as **named profiles**, so you can keep several and switch with one click:
+
+```
+Calendar: Work (public feed)
+Saved Calendars ▸
+    ● Work            ✏️  ✕
+      Personal        ✏️  ✕
+      Team on-call    ✏️  ✕
+      ─────────────────────
+      Add Calendar…
+Copy Feed URL
+```
+
+Click a row to switch to it. The **pencil** renames it, the **✕** removes it after a confirmation that spells out what happens — whether it's the one in use, or your last one. Only the saved link is ever forgotten; your actual calendar is untouched.
+
+**Add Calendar…** asks for a name and a link. A link saved before profiles existed is adopted as a profile automatically, named after its address, so nothing is lost.
+
+The link field accepts any of these — the app works out the feed URL:
 
 | You paste | App uses |
 |---|---|
@@ -111,6 +120,16 @@ Strip → **Set Calendar Link…**, and paste any of these — the app works out
 
 A `ctz=` parameter in the link sets the time zone used for event times; otherwise the Mac's own time zone is used.
 
+## Debug Time
+
+Under the date at the top of the dropdown, **Debug Time…** moves the app to any moment — pick a date and time and the strip renders as if it were then. Useful for checking how a crowded afternoon, an overlap, or the end of the day looks without waiting for it.
+
+The simulated clock **keeps running** from the point you pick, so blocks still slide and countdowns still tick; it isn't frozen. Events are re-fetched for the simulated date, so you can jump to another day entirely.
+
+While it's active the timeline is tinted purple, the date line reads `· simulated`, and the menu shows the pretend time — it can't be left on unnoticed. **Reset to Current Time** puts it back, and the picker itself has a **Use Current Time** button.
+
+The offset survives a relaunch, which is what you want mid-testing. If the strip ever looks wrong, check for the purple tint first.
+
 ## Testing without a calendar
 
 **Demo Mode** (strip → *Demo Mode*) generates its own blocks: 96 per day at exactly 15 minutes, no overlaps, no gaps, coloured from Google's palette, titles carrying their start time. Useful for checking the drawing is correct independently of any data source.
@@ -123,13 +142,13 @@ Most of it is in the menu — click the strip:
 
 | Menu | What it does |
 |---|---|
-| **Time Range ▸** | How much time is visible: ±5 min through ±2 hours (default ±2 hours) |
+| **Time Range ▸** | How much time is visible: ±5 min through ±2 hours (default ±1 hour) |
 | **Timeline Width ▸** | How much menu bar the timeline takes: 100 pt to 450 pt in 50 pt steps (default 250 pt) |
 | **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
-| **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 240 pt, ~36 characters) |
-| **Restore Defaults** | Back to ±2 hours, 250 pt timeline, 240 pt labels, all labels on. Greyed out when nothing has been changed |
+| **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 300 pt) |
+| **Restore Defaults** | Back to ±1 hour, 250 pt timeline, 300 pt labels, all labels on. Greyed out when nothing has been changed |
 
-The two are independent: **range** decides how much time you see, **width** decides how much space it gets. Together they set how big a block looks — at the default ±2 hours across 250 pt, a 15-minute block is about 16 pt wide; narrow the range to ±15 minutes at the same width and it grows to 125 pt. Each width option's tooltip does that arithmetic for you, and the note at the foot of the menu shows the current result.
+The two are independent: **range** decides how much time you see, **width** decides how much space it gets. Together they set how big a block looks — at the default ±1 hour across 250 pt, a 15-minute block is about 31 pt wide; narrow the range to ±15 minutes at the same width and it grows to 125 pt. Each width option's tooltip does that arithmetic for you, and the note at the foot of the menu shows the current result.
 
 The rest is user defaults, read at launch. Change `io.github.macos-menubar-rollingcalendar` if you edit `BUNDLE_ID` in `build.sh`.
 
@@ -172,6 +191,7 @@ Only today is loaded; other days are ignored, though events straddling midnight 
 | `Sources/GoogleCalendarAPI.swift` | Calendar list, colour palette, events with `colorId` |
 | `Sources/ICS.swift` | iCalendar parser, recurrence expansion (RRULE, EXDATE, overrides) |
 | `Sources/CalendarSource.swift` | Normalizes any pasted calendar link into a feed URL |
+| `Sources/CalendarRowView.swift` | Saved-calendar menu row with inline rename and remove buttons |
 | `Sources/DemoData.swift` | Synthetic 15-minute blocks for Demo Mode |
 | `build.sh` | Compiles and packages the `.app` (LSUIElement, ad-hoc signed) |
 | `examples/` | Importable 15-minute test calendars |

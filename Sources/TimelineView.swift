@@ -4,7 +4,7 @@ import AppKit
 ///
 /// Layout, left to right — always a single row:
 ///
-///     🔴(2) Vendor Call (59m)  ─ past │ future ─  (2h15) ZD Chat+Email 🔴(2)
+///     🔴(2) Vendor Call (59m)  ─ past │ future ─  (2h15) Deep Work 🔴(2)
 ///                                       │
 ///                                 red "now" line
 ///
@@ -171,7 +171,7 @@ final class TimelineView: NSView {
 
     /// Width the status item needs so both names fit in full.
     func desiredWidth() -> CGFloat {
-        let g = gutters(now: Date())
+        let g = gutters(now: Clock.now)
         var w = Config.timelineWidth
         if g.leftWidth > 0 { w += g.leftWidth + Self.innerGap }
         if g.rightWidth > 0 { w += g.rightWidth + Self.innerGap }
@@ -219,7 +219,7 @@ final class TimelineView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
         let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-        let now = Date()
+        let now = Clock.now
 
         if let msg = errorMessage {
             drawLabel(msg, in: bounds, color: .systemRed, alignment: .center)
@@ -341,6 +341,13 @@ final class TimelineView: NSView {
                 outline.stroke()
                 ctx.restoreGState()
             }
+        }
+
+        // A simulated clock tints the whole timeline, so it can't be left on by
+        // accident — the strip looks visibly different from the real thing.
+        if Config.isSimulating {
+            NSColor.systemPurple.withAlphaComponent(0.16).setFill()
+            ctx.fill(strip)
         }
 
         // --- Now line, drawn last so it stays on top ---

@@ -19,6 +19,7 @@ swiftc -O \
   Sources/ICS.swift \
   Sources/TimelineView.swift \
   Sources/CalendarSource.swift \
+  Sources/CalendarRowView.swift \
   Sources/DemoData.swift \
   Sources/GoogleAuth.swift \
   Sources/GoogleCalendarAPI.swift \
