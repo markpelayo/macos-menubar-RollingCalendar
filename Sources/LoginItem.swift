@@ -36,8 +36,8 @@ enum LoginItem {
     /// What the menu item itself reads, so the current setting is visible
     /// without opening the submenu.
     static var menuTitle: String {
-        guard isEnabled else { return "Run at startup: Off" }
-        return delay > 0 ? "Run at startup: after \(delay) s" : "Run at startup: On"
+        guard isEnabled else { return "Run at Startup: Off" }
+        return delay > 0 ? "Run at Startup: After \(delay) s" : "Run at Startup: On"
     }
 
     // MARK: - Where things live

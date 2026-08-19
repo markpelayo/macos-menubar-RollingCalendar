@@ -689,8 +689,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         add("Refresh Now", #selector(refreshNow), to: menu, key: "r")
 
+        // --- Launching at login ---
+        // Its own block: nothing to do with refreshing the feed above it.
+        menu.addItem(.separator())
         let startup = NSMenuItem(title: LoginItem.menuTitle, action: nil, keyEquivalent: "")
         startup.submenu = startupMenu()
+        // Ticked whenever it will launch at login, delay or not, so the state
+        // reads at a glance the way Demo Mode and Saved Calendars do.
+        startup.state = LoginItem.isEnabled ? .on : .off
         startup.toolTip = LoginItem.isInApplications
             ? "Launch when you log in, as a LaunchAgent"
             : "Points at the app where it is now — moving the folder will break it"
@@ -1138,7 +1144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         \(Bundle.main.bundleURL.path)
 
         Moving, renaming or deleting that folder will stop it launching. Copy the app to
-        /Applications and choose Run at startup again to point it there.
+        /Applications and choose Run at Startup again to point it there.
         """
         alert.alertStyle = .informational
         alert.addButton(withTitle: "OK")
