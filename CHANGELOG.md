@@ -40,8 +40,9 @@ First public release.
 - Adjustable **Time Range** (±5 minutes to ±2 hours), **Timeline Width** (100–450 pt in 50 pt
   steps), per-part **Labels** toggles and **Label Length**, all persisted, with **Restore Defaults**
   greyed out until something actually changes.
-- **Run at Startup** — off, on, or on after a wait of 5 to 60 seconds; on with a 20-second wait by
-  default. It installs a LaunchAgent rather than a Login Item, so the delay lives in the job itself:
+- **Run at Startup** — off, on, or on after a wait of 5 to 60 seconds. Off by default, since putting
+  something into a login sequence is the user's call; 20 seconds is the wait offered first once it's
+  switched on. It installs a LaunchAgent rather than a Login Item, so the delay lives in the job:
   launchd runs a short-lived shell that sleeps and then replaces itself with the app, leaving nothing
   extra running. It warns once if the app is somewhere it's likely to move from, and repairs the path
   at launch if it has.

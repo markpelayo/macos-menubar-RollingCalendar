@@ -731,7 +731,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         for seconds in LoginItem.delayChoices {
             var title = "\(seconds) s"
-            if seconds == LoginItem.defaultDelay { title += "  (default)" }
+            if seconds == LoginItem.defaultDelay { title += "  (default wait)" }
             let item = NSMenuItem(title: title, action: #selector(chooseStartup(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = seconds

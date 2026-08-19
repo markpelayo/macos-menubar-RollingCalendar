@@ -17,11 +17,14 @@ enum LoginItem {
     /// The waits offered in the menu, in seconds.
     static let delayChoices = [5, 10, 15, 20, 30, 60]
 
-    /// On, after 20 seconds, unless you say otherwise. At login the Mac is busy
+    /// Off until you ask for it. Installing something into a login sequence is
+    /// the user's call, not the app's — nothing is written to
+    /// `~/Library/LaunchAgents` unless you switch it on.
+    static let defaultEnabled = false
+
+    /// The wait offered first once you do switch it on. At login the Mac is
     /// starting everything at once, and a calendar strip is not what you need in
-    /// the first few seconds of that — but it *is* something you want there
-    /// without having to remember to open it.
-    static let defaultEnabled = true
+    /// the first few seconds of that.
     static let defaultDelay = 20
 
     static var isEnabled: Bool {
@@ -83,15 +86,12 @@ enum LoginItem {
         if enabled { install(delay: seconds) } else { remove() }
     }
 
-    /// Run at every launch: sets the default the first time, and repairs an
-    /// agent still pointing at a copy of the app that has since moved.
+    /// Run at every launch, to repair an agent still pointing at a copy of the
+    /// app that has since moved. It never installs one on its own: an untouched
+    /// setting means the question hasn't been asked yet, and the answer is no.
     static func syncOnLaunch() {
-        if UserDefaults.standard.object(forKey: "runAtStartup") == nil {
-            apply(enabled: defaultEnabled, delay: defaultDelay)
-            return
-        }
         guard isEnabled else {
-            if isInstalled { remove() }        // switched off elsewhere; tidy up
+            if isInstalled { remove() }        // switched off, or never on
             return
         }
         if !isInstalled || installedCommand?.contains(executablePath) != true {
