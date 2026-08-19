@@ -7,9 +7,12 @@ struct CalEvent {
     var start: Date
     var end: Date
     var isAllDay: Bool
-    /// Hex background from Google (e.g. "#7ae7bf"). Only the API provides this —
-    /// .ics feeds carry no colour information, so it stays nil in that mode.
+    /// Hex background for the block, e.g. "#28CD41". Feeds carry no colour, so
+    /// this is filled in by a matching keyword rule — otherwise it stays nil and
+    /// the block draws in the neutral "uncategorized" colour.
     var colorHex: String? = nil
+    /// Category from the keyword rule that matched, for the dropdown.
+    var category: String? = nil
 
     func intersects(_ from: Date, _ to: Date) -> Bool {
         return end > from && start < to

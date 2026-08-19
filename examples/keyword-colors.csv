@@ -1,0 +1,42 @@
+category,color (color name or hex),keyword
+Focus Work | Learn,blue,focus
+Focus Work | Learn,blue,work
+Focus Work | Learn,blue,learn
+Focus Work | Learn,blue,deep tasks
+Focus Work | Learn,blue,writing
+Focus Work | Learn,blue,coding
+Focus Work | Learn,blue,project creation
+Meetings | Urgency,red,meeting
+Meetings | Urgency,red,deadline
+Meetings | Urgency,red,call
+Meetings | Urgency,red,calls
+Meetings | Urgency,red,sync
+Meetings | Urgency,red,syncs
+Meetings | Urgency,red,client syncs
+Meetings | Urgency,red,standup
+Meetings | Urgency,red,interview
+Meetings | Urgency,red,high-priority deadlines
+Meetings | Urgency,red,training
+Health | Rest,green,sleep
+Health | Rest,green,meal
+Health | Rest,green,nap
+Health | Rest,green,lunch
+Health | Rest,green,exercise
+Health | Rest,green,me-time
+Health | Rest,green,gym sessions
+Health | Rest,green,walks
+Health | Rest,green,mental breaks
+Admin | Errands,yellow,email clearing
+Admin | Errands,yellow,update
+Admin | Errands,yellow,to-do list
+Admin | Errands,yellow,minor chores
+Personal | Growth,purple,lecture
+Personal | Growth,purple,meal prep
+Personal | Growth,purple,family time
+Personal | Growth,purple,reading
+Personal | Growth,purple,self development
+Personal | Growth,purple,personal development
+Personal | Growth,purple,church
+Travel | Buffers,teal,commute
+Travel | Buffers,teal,buffer
+Travel | Buffers,teal,out of office

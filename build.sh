@@ -20,9 +20,8 @@ swiftc -O \
   Sources/TimelineView.swift \
   Sources/CalendarSource.swift \
   Sources/CalendarRowView.swift \
+  Sources/KeywordRules.swift \
   Sources/DemoData.swift \
-  Sources/GoogleAuth.swift \
-  Sources/GoogleCalendarAPI.swift \
   -o "${BUNDLE}/Contents/MacOS/${APP_NAME}"
 
 echo "==> Writing Info.plist"
@@ -36,8 +35,8 @@ cat > "${BUNDLE}/Contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key><string>${APP_NAME}</string>
     <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.0</string>
-    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleShortVersionString</key><string>1.0.0</string>
+    <key>CFBundleVersion</key><string>1.0.0</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>

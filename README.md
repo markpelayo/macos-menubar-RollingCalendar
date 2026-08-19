@@ -3,10 +3,11 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform: macOS 13+](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey)](#quick-start)
 [![Status: in development](https://img.shields.io/badge/status-in%20development-orange)](#known-limitations)
+[![Release: v1.0.0](https://img.shields.io/badge/release-v1.0.0-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
 
 A macOS menu bar app that draws today's calendar as a horizontal timeline scrolling past a fixed "now" marker. Instead of asking *what time is my next thing*, you glance up and see where you are.
 
-> **Status: in development.** Working and usable, but rough edges remain — see [Known limitations](#known-limitations). Behaviour, defaults and stored preferences may change without migration.
+> **Status: in development.** Working and usable — [v1.0.0](CHANGELOG.md) is the first public release — but rough edges remain, see [Known limitations](#known-limitations). Behaviour, defaults and stored preferences may change without migration.
 
 ## The UI
 
@@ -14,19 +15,34 @@ A macOS menu bar app that draws today's calendar as a horizontal timeline scroll
 
 Time flows right-to-left. The red line is fixed at the centre and always marks now, so blocks drift leftward as the day passes. There are no tick marks or gridlines — just past, now and future.
 
-- **Left label** — the block you're in and how much of it is left, e.g. `Deep Work (5m)`, turning red in the final two minutes
+- **Left label** — the block you're in and how much of it is left, e.g. `Deep Work (5m)`. It turns **red and bold** for the final two minutes, so the ending registers peripherally rather than needing to be read (`urgentSeconds` changes the threshold)
 - **Right label** — what's next and how long that block runs for, e.g. `(16h) Out of office`
-- **Labels size themselves to the name** — the menu bar item grows and shrinks as event names change, up to `maxLabelWidth` (300 pt by default). Past that the *name* is shortened with an ellipsis; the countdown and the warning badge are never cut, since a truncated countdown would be useless. The capsules carry no text, as it would only repeat the labels
-- **Coloured capsules** — your events in their real Google Calendar colours, outlined so neighbours stay distinct, separated by a 1 pt gap
+- **Labels size themselves to the name** — the menu bar item grows and shrinks as event names change, up to `maxLabelWidth` (360 pt by default, about 47 characters). Past that the *name* is shortened with an ellipsis; the countdown and the warning badge are never cut, since a truncated countdown would be useless. The capsules carry no text, as it would only repeat the labels
+- **Coloured capsules** — your events in their real colours, outlined so neighbours stay distinct, separated by a 1 pt gap. Anything with no colour and no matching keyword is neutral grey, so unclassified events are obvious
+- **Overlaps: shortest on top** — a 45-minute meeting inside a 1-hour block stays visible rather than hiding underneath it
 - **Past is paler** — the same colour, lightened once it's behind the line, with a lighter outline to match. A block in progress fades from the left as it elapses, so you can see how far through it you are
-- **Double-booking is flagged, not stacked** — the strip stays one row, and the badge's *side* tells you when the clash is. On the **right** it hasn't reached now yet: `(1h) Vendor Call 🔴(2)`. On the **left** it's live: `🔴(2) Vendor Call (59m)` — two things want you right this second. A clash appears on the right, crosses to the left as it reaches the now line, and clears when it's over. Open the dropdown for the full list
+- **Double-booking is flagged, not stacked** — the strip stays one row, and the badge's *side* tells you when the clash is. On the **right** it hasn't reached now yet: `(1h) Vendor Call 🔴(2)`. On the **left** it's live: `🔴(2) Vendor Call (59m)` — two things want you right this second. A clash appears on the right, crosses to the left as it reaches the now line, and clears when it's over. Open the dropdown, where each affected row spells it out as `🔴(2) Overlapped`
 - **Window** — ±1 hour across 250 pt by default, plus however much the two labels need. Both are adjustable from the menu
 
 The strip is deliberately small — it lives in the menu bar and is meant to be read at a glance, not studied.
 
-Clicking it opens today's schedule, and everything else lives in that menu:
+Clicking it opens the day's blocks, and everything else lives in that menu. It's shown here in four parts, top to bottom.
 
-![Rolling Calendar dropdown menu](docs/ui-menu.svg)
+### 1 · The header
+
+![The menu header: date, Debug Time and Reset to Current Time](docs/ui-menu-header.png)
+
+### 2 · The day's blocks
+
+![The day list, with current blocks, colour chips and overlap badges annotated](docs/ui-menu-day.png)
+
+### 3 · Appearance and colours
+
+![The appearance section: Time Range, Timeline Width, Labels, Label Length, Keyword Colors, Restore Defaults](docs/ui-menu-appearance.png)
+
+### 4 · Where the calendar comes from
+
+![The calendar section: current source, Demo Mode, Saved Calendars and Quit](docs/ui-menu-source.png)
 
 ## Quick start
 
@@ -40,7 +56,7 @@ open build/RollingCalendar.app
 
 Needs macOS 13+ and Xcode Command Line Tools (`xcode-select --install`) for `swiftc`. No packages, no dependencies, no Xcode project — one shell script and seven Swift files.
 
-**It starts in Demo Mode**, showing synthetic 15-minute blocks, so you can see it working before connecting anything. Click the strip → **Demo Mode** to turn that off once you've set up a real calendar.
+**It starts in Demo Mode**, showing a realistic time-blocked day, so you can see it working before connecting anything. Click the strip → **Demo Mode** to turn that off once you've set up a real calendar.
 
 To keep it: `cp -R build/RollingCalendar.app /Applications/`. To start it at login: **System Settings → General → Login Items → +**, then pick RollingCalendar.
 
@@ -52,55 +68,25 @@ To keep it: `cp -R build/RollingCalendar.app /Applications/`. To start it at log
 pkill -f RollingCalendar.app
 rm -rf /Applications/RollingCalendar.app
 defaults delete io.github.macos-menubar-rollingcalendar   # forget settings
-security delete-generic-password -s io.github.macos-menubar-rollingcalendar   # forget the Google token
 ```
-
-Also revoke the app's access at [myaccount.google.com/permissions](https://myaccount.google.com/permissions) if you used Google sign-in.
 
 ## Connecting your calendar
 
-Two modes. Nothing is baked into the app — it ships with no calendar configured.
-
-| | Google sign-in | Public `.ics` feed |
-|---|---|---|
-| Event colours | **Yes**, real per-event colours | No — feeds carry none |
-| Calendar stays private | Yes | No, must be shared publicly |
-| Freshness | Live; ≤5 min | Google's cache lag, can be hours |
-| Setup | One-time OAuth client | Paste a link |
-| Recurring events | Expanded by Google | Expanded locally |
-
-### Google sign-in (recommended)
-
-Per-event colour exists only in the Google Calendar API — the `.ics` export has no colour field. Google also requires every app to be registered, so there's a one-time setup. You log in on Google's own page; the app never sees your password and asks only for `calendar.readonly`.
-
-1. [console.cloud.google.com](https://console.cloud.google.com) → create or pick a project
-2. **APIs & Services → Library** → enable **Google Calendar API**
-3. **APIs & Services → OAuth consent screen** → User type **External** → add your own address under **Test users**
-4. **Credentials → Create credentials → OAuth client ID** → Application type **Desktop app**
-5. In the app: strip → **Set Up Google Sign-In…** → paste the Client ID and secret → **Save & Sign In**
-
-Because the consent screen stays in Testing mode, Google shows an "unverified app" warning — **Advanced → Go to … (unsafe)**. Expected for a personal app; only your listed test users can sign in.
-
-Then **Choose Calendar** lists every calendar on the account with its colour swatch. The one marked primary is your main calendar.
-
-The refresh token is stored in your login Keychain. Colours resolve in this order: the event's own colour override → the calendar's colour → green.
-
-### Public `.ics` feed
+Nothing is baked into the app — it ships with no calendar configured, and reads a **public iCalendar feed**. Colour comes from [keyword rules](#keyword-colors) rather than from the calendar, so a feed is all it needs.
 
 Feed calendars are saved as **named profiles**, so you can keep several and switch with one click:
 
 ```
 Calendar: Work (public feed)
 Saved Calendars ▸
-    ● Work            ✏️  ✕
+    ✓ Work            ✏️  ✕
       Personal        ✏️  ✕
       Team on-call    ✏️  ✕
       ─────────────────────
       Add Calendar…
-Copy Feed URL
 ```
 
-Click a row to switch to it. The **pencil** renames it, the **✕** removes it after a confirmation that spells out what happens — whether it's the one in use, or your last one. Only the saved link is ever forgotten; your actual calendar is untouched.
+A tick marks the calendar actually being read — nothing is ticked in Demo Mode, and **Saved Calendars** itself is ticked whenever a saved calendar is live. Click a row to switch to it. The **pencil** renames it, the **✕** removes it after a confirmation that spells out what happens — whether it's the one in use, or your last one. Only the saved link is ever forgotten; your actual calendar is untouched.
 
 **Add Calendar…** asks for a name and a link. A link saved before profiles existed is adopted as a profile automatically, named after its address, so nothing is lost.
 
@@ -116,9 +102,125 @@ The link field accepts any of these — the app works out the feed URL:
 | `you@gmail.com`, `…@group.calendar.google.com` | derived `.ics` feed |
 | `file:///path/to/local.ics` | read from disk |
 
-**HTTP 404 means the calendar isn't public.** Either share it publicly (Google Calendar → Settings and sharing → *Access permissions* → **Make available to public**), use the **Secret address in iCal format** under *Integrate calendar*, or sign in with Google instead.
+**HTTP 404 means the calendar isn't public.** Either share it publicly (Google Calendar → Settings and sharing → *Access permissions* → **Make available to public**), use the **Secret address in iCal format** under *Integrate calendar*.
 
 A `ctz=` parameter in the link sets the time zone used for event times; otherwise the Mac's own time zone is used.
+
+## The dropdown list
+
+Rows read `time • duration • name • category`, with the category's colour as an inline chip, plus `🔴(n) Overlapped` when a block shares time with others:
+
+```
+▶︎ 04:30 AM – 11:30 AM  •  7h     •  Sleep               •  ◼︎ Health | Rest
+   11:30 AM – 12:00 PM  •  30m    •  Stretching          •  ◼︎ Health | Rest
+   12:30 PM – 02:30 PM  •  2h     •  Focus Work | Learn  •  ◼︎ Focus Work | Learn
+   03:00 PM – 03:30 PM  •  30m    •  Team Sync           •  ◼︎ Meetings | Urgency  •  🔴(2) Overlapped
+   03:00 PM – 03:20 PM  •  20m    •  Client Call         •  ◼︎ Meetings | Urgency  •  🔴(2) Overlapped
+   ─── Thursday, August 20 ───
+   04:30 AM – 11:30 AM  •  7h     •  Sleep               •  ◼︎ Health | Rest
+```
+
+![One row broken down: start–end, duration, block name, colour chip with category, overlap badge](docs/ui-menu-row.png)
+
+Every column lines up exactly, which takes three things: hours are zero-padded; times and durations use **tabular figures**, since SF's default digits are proportional and `1` is narrower than the rest; and each field sits on a **tab stop** measured from the widest time and duration in the list.
+
+Tab stops rather than padding with spaces, because padding by character count doesn't align proportional text — `7h` and `30m` are 2 and 3 characters, and `m` is 4 pt wider than `h`, so the separator after them drifts by up to 4 pt however many spaces you add. Tab stops position by point.
+
+**The list runs anchor to anchor, not midnight to midnight.** It starts at the block that opened your current day and ends at the next one, so a night shift reads as a single stretch instead of being severed at midnight — and you see the whole shape of the day rather than a pile of past events and two future ones.
+
+The anchor defaults to any block whose title contains **`sleep`**. Consecutive anchor blocks merge into one run, so a sleep split into 15-minute chunks still counts as a single boundary.
+
+If a day has no anchor — or the day's anchor hasn't happened yet — it falls back to **today plus a rolling 24 hours** rather than the calendar day, so there's always a future to see. A day-only fallback would hide everything past midnight even while the strip was already showing it.
+
+```bash
+# anchor the day on something else
+defaults write io.github.macos-menubar-rollingcalendar dayAnchorKeyword "wake"
+```
+
+A date separator marks where one day becomes the next, since otherwise today's 4:30 AM and tomorrow's look identical. Long cycles are capped at 60 rows with an "… and N more" line.
+
+## Keyword colors
+
+Colour blocks by what they're *called*, rather than by which calendar they came from.
+
+**The fastest start is Keyword Colors ▸ Use Sample Colors** — 37 keywords across six categories, applied instantly. **Save Sample CSV…** writes that same set out as a file you can edit in a spreadsheet and bring back with **Import CSV…**, so you're never starting from a blank sheet.
+
+The format is three columns:
+
+```csv
+category,color (color name or hex),keyword
+Focus Work | Learn,#286DCD,focus
+Health | Rest,green,meal
+Personal | Growth,purple,meal prep
+Travel | Buffers,#7A7A7A,commute
+```
+
+| Column | Used for |
+|---|---|
+| `category` | Grouping in the menu — not matched against |
+| `color` | The colour drawn. **A hex or a name** — `#28CD41`, `28CD41` and `green` all work |
+| `keyword` | Matched against the event's title |
+
+One colour column, not two — a separate name and hex only invites them to disagree.
+
+Names map to macOS's own system colours — blue is blue, black is black, nothing reinterpreted:
+
+`red` `orange` `yellow` `green` `mint` `teal` `cyan` `blue` `indigo` `purple` `pink` `brown` `gray` `light gray` `dark gray` `black` `white`
+
+Blocks are drawn at full opacity, so a hex renders as exactly that hex.
+
+The importer is deliberately forgiving, because spreadsheets aren't:
+
+- **Any delimiter** — comma, semicolon or tab. Excel picks one based on your locale, so it isn't assumed
+- **Any column order**, and header wording it can't match is fine — `color (color name or hex)` works
+- **No header row at all** — the colour column is found by looking for values that *are* colours, and the keyword column by which one varies most
+- **Legacy files** with separate `color_name` and `color_hex` columns still import, taking the hex
+- Blank spacer rows, quoted fields, CRLF endings, and Latin-1 files from Excel
+
+Anything that's neither a hex nor a known name is skipped and named in the summary. If an import fails outright, the error shows what the parser actually saw — delimiter, which column it took for what, and the first data row — so the fix is visible rather than guesswork. There's a working example in [`examples/keyword-colors.csv`](examples/keyword-colors.csv).
+
+### How a keyword is matched
+
+**Longer phrases win.** Rules are sorted by word count before matching, so a two-word keyword is always tested before a single word. Given both `meal` (green) and `meal prep` (purple):
+
+| Event title | Colour | Matched |
+|---|---|---|
+| `Meal prep for the week` | 🟣 purple | `meal prep` |
+| `meal-prep` | 🟣 purple | `meal prep` |
+| `Meal_Prep` | 🟣 purple | `meal prep` |
+| `Lunch` | 🟢 green | `lunch` |
+| `Prep the meal` | 🟢 green | `meal` |
+| `Oatmeal breakfast` | — | nothing: `meal` isn't a whole word here |
+
+**Separators don't matter.** Both the title and the keyword have every non-alphanumeric character flattened to a space, so `meal prep`, `meal-prep` and `meal_prep` are one keyword, and a title like `Focus Work | Learn (2H)` matches `focus` cleanly.
+
+**Whole words only.** `meal` matches "Prep the meal" but not "Oatmeal", which stops short keywords colouring things by accident.
+
+Matching is case-insensitive. Repeated keywords are kept once. Clearing the rules puts everything back.
+
+### Uncategorized blocks
+
+Anything with no match keeps whatever colour it already had — its Google colour, or **neutral grey `#8E8E93`** if it has none. Grey therefore means "no rule covers this yet", which is a useful prompt to add a keyword rather than a colour choice.
+
+The **Keyword Colors** submenu lists it below your categories with its swatch, so grey on the strip is recognisable rather than a mystery:
+
+```
+23 keywords from calendar colors.csv
+──────────────────────────────────
+🟦  Travel | Buffers  ·  3
+🟨  Admin | Errands  ·  3
+🟪  Personal | Growth  ·  2
+🟩  Health | Rest  ·  6
+🟥  Meetings | Urgency  ·  5
+🟦  Focus Work | Learn  ·  4
+──────────────────────────────────
+⬜  Uncategorized  ·  no keyword match
+──────────────────────────────────
+Import Another CSV…
+Clear Keyword Colors
+```
+
+Keep grey reserved for this: if a category also uses grey, "unclassified" stops being readable at a glance. `unmatchedColor` in defaults changes it if you'd rather grey were free for a category.
 
 ## Debug Time
 
@@ -126,13 +228,19 @@ Under the date at the top of the dropdown, **Debug Time…** moves the app to an
 
 The simulated clock **keeps running** from the point you pick, so blocks still slide and countdowns still tick; it isn't frozen. Events are re-fetched for the simulated date, so you can jump to another day entirely.
 
-While it's active the timeline is tinted purple, the date line reads `· simulated`, and the menu shows the pretend time — it can't be left on unnoticed. **Reset to Current Time** puts it back, and the picker itself has a **Use Current Time** button.
+While it's active the left label gains a marker: `(❗Simulated❗) 🔴(2) Out of office (22m)`. Only the marker is bold — the rest of the label keeps its normal weight, so it reads as an annotation rather than changing the label itself. The date line also says `· simulated` and the menu shows the pretend time.
+
+**Nothing is tinted, washed or dimmed.** The point of jumping to another time is to see the real colours at that time, so the strip is drawn exactly as it would be for real. **Reset to Current Time** puts it back, and the picker has a **Use Current Time** button.
 
 The offset survives a relaunch, which is what you want mid-testing. If the strip ever looks wrong, check for the purple tint first.
 
 ## Testing without a calendar
 
-**Demo Mode** (strip → *Demo Mode*) generates its own blocks: 96 per day at exactly 15 minutes, no overlaps, no gaps, coloured from Google's palette, titles carrying their start time. Useful for checking the drawing is correct independently of any data source.
+**Demo Mode** (strip → *Demo Mode*) generates a plausible day in-app: sleep, focus blocks, meals, a nap, an evening shift that runs past midnight, and two deliberate collisions — a double-booked call at 15:00, and a stretch at 16:15 where an interview and a standup both land inside a focus block, so the 🔴 badges have something to report.
+
+It supplies only what a calendar would — **times and names, never colours**. Colour comes from the same [keyword rules](#keyword-colors) as a real feed, so **Clear Keyword Colors** turns the demo grey exactly as it would turn your calendar grey. On a first launch the sample rules are applied once, so it looks configured out of the box.
+
+Because it starts and ends on sleep, it also exercises the dropdown's [sleep-to-sleep cycle](#the-dropdown-list).
 
 The [`examples/`](examples/) folder has importable `.ics` files built on the same grid. They use floating local times, so they land on correct quarter-hours in any time zone. See [examples/README.md](examples/README.md).
 
@@ -145,8 +253,8 @@ Most of it is in the menu — click the strip:
 | **Time Range ▸** | How much time is visible: ±5 min through ±2 hours (default ±1 hour) |
 | **Timeline Width ▸** | How much menu bar the timeline takes: 100 pt to 450 pt in 50 pt steps (default 250 pt) |
 | **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
-| **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 300 pt) |
-| **Restore Defaults** | Back to ±1 hour, 250 pt timeline, 300 pt labels, all labels on. Greyed out when nothing has been changed |
+| **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 360 pt, about 47 characters) |
+| **Restore Defaults** | Back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Greyed out when nothing has been changed |
 
 The two are independent: **range** decides how much time you see, **width** decides how much space it gets. Together they set how big a block looks — at the default ±1 hour across 250 pt, a 15-minute block is about 31 pt wide; narrow the range to ±15 minutes at the same width and it grows to 125 pt. Each width option's tooltip does that arithmetic for you, and the note at the foot of the menu shows the current result.
 
@@ -155,6 +263,12 @@ The rest is user defaults, read at launch. Change `io.github.macos-menubar-rolli
 ```bash
 # thickness of the red now line, points (default 4)
 defaults write io.github.macos-menubar-rollingcalendar nowLineWidth -float 6
+
+# how long before a block ends the left label goes red and bold, seconds (default 120)
+defaults write io.github.macos-menubar-rollingcalendar urgentSeconds -float 300
+
+# colour for events matching no keyword and carrying none of their own (default #8E8E93)
+defaults write io.github.macos-menubar-rollingcalendar unmatchedColor "#C7C7CC"
 
 # translucent tinted blocks instead of solid fills
 defaults write io.github.macos-menubar-rollingcalendar solidBlocks -bool false
@@ -187,11 +301,10 @@ Only today is loaded; other days are ignored, though events straddling midnight 
 |---|---|
 | `Sources/main.swift` | Config, `NSStatusItem`, menu, dialogs, fetch/redraw timers |
 | `Sources/TimelineView.swift` | All drawing: capsules, now line, gutter labels, overlap badges |
-| `Sources/GoogleAuth.swift` | OAuth 2.0, PKCE + loopback redirect, Keychain storage |
-| `Sources/GoogleCalendarAPI.swift` | Calendar list, colour palette, events with `colorId` |
 | `Sources/ICS.swift` | iCalendar parser, recurrence expansion (RRULE, EXDATE, overrides) |
 | `Sources/CalendarSource.swift` | Normalizes any pasted calendar link into a feed URL |
 | `Sources/CalendarRowView.swift` | Saved-calendar menu row with inline rename and remove buttons |
+| `Sources/KeywordRules.swift` | CSV import, keyword matching and longest-phrase precedence |
 | `Sources/DemoData.swift` | Synthetic 15-minute blocks for Demo Mode |
 | `build.sh` | Compiles and packages the `.app` (LSUIElement, ad-hoc signed) |
 | `examples/` | Importable 15-minute test calendars |
@@ -202,22 +315,17 @@ No storyboards, no `.xcodeproj`, no SwiftPM manifest. `swiftc` is invoked direct
 
 ## Known limitations
 
-- **Ad-hoc signed.** The signing identity changes on every rebuild, so macOS may re-prompt for Keychain access after each build.
-- **The OAuth consent screen stays in Testing mode** unless you verify the app with Google, so only accounts you add as test users can sign in.
-- **The local ICS parser handles a practical subset of RFC 5545.** `FREQ=DAILY/WEEKLY/MONTHLY/YEARLY` with `INTERVAL`, `BYDAY`, `BYMONTHDAY`, `UNTIL`, `COUNT`, plus `EXDATE` and `RECURRENCE-ID` overrides. `COUNT` truncation is approximate for `WEEKLY` with multiple `BYDAY` values. Google sign-in avoids all of this by expanding recurrence server-side.
+- **The local ICS parser handles a practical subset of RFC 5545.** `FREQ=DAILY/WEEKLY/MONTHLY/YEARLY` with `INTERVAL`, `BYDAY`, `BYMONTHDAY`, `UNTIL`, `COUNT`, plus `EXDATE` and `RECURRENCE-ID` overrides. `COUNT` truncation is approximate for `WEEKLY` with multiple `BYDAY` values.
 - **All-day events** appear in the dropdown but not on the strip.
-- **`.ics` feeds carry no colour**, so every block is green in feed mode.
-- **Google's feed cache** means feed mode can lag well behind an edit. Sign-in mode is live.
-- **The client secret is stored in user defaults**, not the Keychain. It isn't really secret for a desktop OAuth client, but it is plaintext on disk.
+- **Feeds carry no colour of their own**, so blocks are coloured by keyword rules or shown as uncategorized grey.
+- **Google's feed cache** means an edit can take a while to reach the app — minutes to hours, and not under the app's control.
 - **Single day only.** No multi-day view, no scrolling back.
 
 ## Privacy
 
-Your calendar data never leaves your machine. The app talks only to Google (`googleapis.com`, `accounts.google.com`) or to the feed URL you provide, and nothing else — no analytics, no telemetry, no third-party services. Events are held in memory only and are never written to disk.
+Your calendar data never leaves your machine. The app fetches the feed URL you provide and nothing else — no accounts, no sign-in, no analytics, no telemetry, no third-party services. Events are held in memory only and are never written to disk.
 
-What is stored locally: your settings and the OAuth client ID/secret in `~/Library/Preferences/io.github.macos-menubar-rollingcalendar.plist`, and the Google refresh token in your login Keychain. The client secret is stored in plain text — it isn't truly secret for a desktop OAuth client, but be aware of it.
-
-During sign-in the app briefly listens on `127.0.0.1` on a random port to catch Google's redirect, then shuts the listener down. Nothing is exposed beyond the loopback interface.
+What is stored locally: your settings, saved calendar links and imported keyword rules, all in `~/Library/Preferences/io.github.macos-menubar-rollingcalendar.plist`. No credentials, because there are none to store.
 
 ## Disclaimer
 
@@ -230,6 +338,18 @@ Full terms: [DISCLAIMER.md](DISCLAIMER.md) and the [MIT Licence](LICENSE).
 ## Contributing
 
 Issues and pull requests are welcome. Keep it dependency-free and keep the idle cost near zero.
+
+## Releases
+
+Versions are tagged and described in [CHANGELOG.md](CHANGELOG.md); the same notes appear on the
+[releases page](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases). Each release
+carries source only — no app bundle, for the notarisation reason above — so installing a given
+version means checking out its tag and running `./build.sh`:
+
+```bash
+git checkout v1.0.0
+./build.sh
+```
 
 ## License
 

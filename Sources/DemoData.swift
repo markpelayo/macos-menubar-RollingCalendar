@@ -1,87 +1,71 @@
 import Foundation
 
-/// Synthetic 15-minute blocks, generated in-app.
+/// A realistic time-blocked day, generated in-app.
 ///
-/// This exists so the strip can be tested without depending on Google at all —
-/// no import, no OAuth, no public feed. Blocks are exactly 15 minutes,
-/// back-to-back with no overlaps and no gaps, aligned to :00/:15/:30/:45,
-/// and coloured from Google Calendar's own palette.
+/// This exists so the strip can be tried without any calendar at all — no feed,
+/// no import. It supplies only what a calendar would: times and names. Colour
+/// comes from the same keyword rules as a real feed, so clearing those turns the
+/// demo grey exactly as it would turn a real calendar grey.
 enum DemoData {
 
-    /// Google Calendar's event colours (colorId 1…11).
-    private static let palette: [String: String] = [
-        "Lavender": "#7986cb", "Sage": "#33b679", "Grape": "#8e24aa",
-        "Flamingo": "#e67c73", "Banana": "#f6c026", "Tangerine": "#f5511d",
-        "Peacock": "#039be5", "Graphite": "#616161", "Blueberry": "#3f51b5",
-        "Basil": "#0b8043", "Tomato": "#d60000"
+    /// One block of the template day. Minutes are counted from local midnight,
+    /// and `end` may pass 1440 for a block that runs past midnight.
+    private struct Block {
+        let start: Int
+        let end: Int
+        let title: String
+    }
+
+    /// A day that starts and ends on sleep, so the dropdown's sleep-to-sleep
+    /// cycle has something real to anchor to. Names are chosen to match the
+    /// keywords in `KeywordRules.sampleCSV`.
+    ///
+    /// Two deliberate collisions, because a schedule without them wouldn't show
+    /// what the ⚠ badges are for: a double-booked call at 15:00, and a
+    /// three-deep stretch at 16:15 where an interview and a standup both land
+    /// inside a focus block.
+    private static let day: [Block] = [
+        Block(start:  270, end:  690, title: "Sleep"),
+        Block(start:  690, end:  720, title: "Stretching | Exercise | Breakfast"),
+        Block(start:  720, end:  750, title: "Read Tasks | Make a TO-DO list"),
+        Block(start:  750, end:  870, title: "Focus Work | Learn"),
+        Block(start:  870, end:  900, title: "Update tasks | Update the TO-DO list"),
+
+        // 15:00 — two calls booked over each other.
+        Block(start:  900, end:  930, title: "Team Sync | Weekly Planning"),
+        Block(start:  900, end:  920, title: "Client Call | Acme Renewal"),
+
+        // 15:30–17:00 focus, with an interview and a standup dropped inside it.
+        Block(start:  930, end: 1020, title: "Focus Work | Learn"),
+        Block(start:  960, end:  990, title: "Interview | Candidate Screen"),
+        Block(start:  975, end:  990, title: "Standup | Team Check-in"),
+
+        Block(start: 1020, end: 1050, title: "Power Nap"),
+        Block(start: 1050, end: 1080, title: "Lunch"),
+        Block(start: 1080, end: 1140, title: "Finalising Work | Learn"),
+        Block(start: 1140, end: 1200, title: "Me Time | Exercise | Bath | Rest"),
+        Block(start: 1200, end: 1230, title: "Reading | Self Development"),
+        Block(start: 1230, end: 1680, title: "Corporate Work")
     ]
 
-    private struct Slot {
-        let title: String
-        let colorName: String
-    }
-
-    /// A plausible day, so the strip looks like a real schedule.
-    private static func slot(localMinute: Int) -> Slot {
-        let hour = localMinute / 60
-        let minute = localMinute % 60
-        switch hour {
-        case 0..<6:
-            return Slot(title: "Sleep", colorName: "Blueberry")
-        case 6:
-            return Slot(title: "Breakfast", colorName: "Basil")
-        case 7..<12:
-            let titles = ["Focus Work", "Deep Work", "Email triage", "Code review", "Standup"]
-            return Slot(title: titles[(hour - 7) % titles.count], colorName: "Peacock")
-        case 12:
-            return Slot(title: "Lunch", colorName: "Basil")
-        case 13..<15:
-            let titles = ["Focus Work", "Customer call", "Write docs", "Ticket cleanup"]
-            return Slot(title: titles[(hour - 13) % titles.count], colorName: "Peacock")
-        case 15:
-            return minute < 30
-                ? Slot(title: "Afternoon break", colorName: "Banana")
-                : Slot(title: "Deep Work", colorName: "Peacock")
-        case 16..<18:
-            let titles = ["1:1 sync", "Roadmap review"]
-            return Slot(title: titles[(hour - 16) % titles.count], colorName: "Tangerine")
-        case 18:
-            return Slot(title: "Dinner", colorName: "Basil")
-        case 19:
-            return Slot(title: "Me Time", colorName: "Banana")
-        case 20..<22:
-            return Slot(title: "Evening project", colorName: "Grape")
-        case 22:
-            return minute < 30
-                ? Slot(title: "Snack", colorName: "Flamingo")
-                : Slot(title: "Wind down", colorName: "Lavender")
-        default:
-            return Slot(title: "Wind down", colorName: "Lavender")
-        }
-    }
-
-    /// 15-minute blocks covering the given day, plus the day either side so the
-    /// strip never runs out of blocks at its edges.
+    /// The template repeated across yesterday, today and the next two days, so
+    /// neither the strip nor the dropdown's cycle runs out of blocks.
     static func events(around date: Date, timeZone: TimeZone) -> [CalEvent] {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = timeZone
 
         var out: [CalEvent] = []
-        for dayOffset in -1...1 {
+        for dayOffset in -1...2 {
             guard let day = cal.date(byAdding: .day, value: dayOffset, to: date) else { continue }
             let midnight = cal.startOfDay(for: day)
-            for i in 0..<96 {
-                let localMinute = i * 15
-                let start = midnight.addingTimeInterval(Double(localMinute) * 60)
-                let end = start.addingTimeInterval(15 * 60)
-                let s = slot(localMinute: localMinute)
-                let hh = localMinute / 60, mm = localMinute % 60
+            for block in Self.day {
+                // No colour and no category: keyword rules decide both, just as
+                // they do for a real calendar.
                 out.append(CalEvent(
-                    title: String(format: "%@ %02d:%02d (15M)", s.title, hh, mm),
-                    start: start,
-                    end: end,
-                    isAllDay: false,
-                    colorHex: palette[s.colorName]
+                    title: block.title,
+                    start: midnight.addingTimeInterval(Double(block.start) * 60),
+                    end: midnight.addingTimeInterval(Double(block.end) * 60),
+                    isAllDay: false
                 ))
             }
         }

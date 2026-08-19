@@ -108,13 +108,13 @@ final class CalendarRowView: NSView {
         let ink: NSColor = isHovered ? .selectedMenuItemTextColor : .labelColor
         let font = NSFont.menuFont(ofSize: 0)
 
-        // A bullet marks the calendar in use — quieter than a checkmark, and it
-        // reads as "this one" rather than "done".
+        // A checkmark, matching every other selected item in the menu. Only the
+        // calendar actually being read gets one — in Demo Mode nothing is.
         if isActive {
-            let diameter: CGFloat = 6
-            ink.setFill()
-            NSBezierPath(ovalIn: NSRect(x: 10, y: (bounds.height - diameter) / 2,
-                                        width: diameter, height: diameter)).fill()
+            let tick = NSAttributedString(string: "✓", attributes: [
+                .font: NSFont.menuFont(ofSize: 0), .foregroundColor: ink
+            ])
+            tick.draw(at: NSPoint(x: 9, y: (bounds.height - tick.size().height) / 2))
         }
 
         let style = NSMutableParagraphStyle()

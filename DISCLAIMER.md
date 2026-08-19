@@ -17,8 +17,8 @@ The Author does not warrant that the Software will be uninterrupted, timely, sec
 free of harmful components, that any defect will be corrected, or that the event times, durations,
 countdowns, colours, time zones, recurrence expansions or other output it produces are accurate,
 complete, current or suitable for any purpose. Calendar data may be cached, stale, incomplete,
-misparsed, silently truncated, or absent entirely — including where a remote feed is unavailable, a
-sign-in has expired, a recurrence rule is unsupported, or a time zone is misinterpreted.
+misparsed, silently truncated, or absent entirely — including where a remote feed is unavailable or
+cached, a recurrence rule is unsupported, or a time zone is misinterpreted.
 
 **The Software is a glanceable indicator only and must not be relied upon for timekeeping,
 scheduling, reminders, alerting, attendance, billing, medication, or any safety-critical, medical,
@@ -42,13 +42,8 @@ anyone who has, or can guess, the address. A "secret" iCalendar address grants r
 anyone who obtains it and is not a substitute for access control. The Author bears no
 responsibility for the disclosure of any information you elect to publish or share.
 
-**If you choose to use Google sign-in, the Google Cloud project, OAuth client and credentials are
-yours, not the Author's.** You are responsible for creating them, for keeping them confidential,
-for the terms under which you may use the relevant Google APIs, and for any quota, suspension,
-billing or enforcement consequence. Credentials handled by the Software are stored on your own
-machine using facilities provided by the operating system; the OAuth client secret is stored in
-your user preferences in plain text. You are responsible for the security of your machine, your
-user account and your backups. Anyone with access to them may be able to read that data.
+The Software reads a calendar feed address that you supply and stores it, along with your
+settings, in your user preferences. It holds no accounts and no credentials.
 
 ## 3. Limitation of liability
 
@@ -94,7 +89,7 @@ Author does not control those services and gives no warranty in respect of them.
 degrade, rate-limit, cache, restrict or withdraw access at any time, with or without notice, which
 may cause the Software to display stale or no data, or to stop working entirely.
 
-Google, Google Calendar and Google Cloud are trade marks of Google LLC. The Software is not
+Google and Google Calendar are trade marks of Google LLC. The Software is not
 affiliated with, endorsed, sponsored, certified or supported by Google LLC. All other trade marks
 are the property of their respective owners, and their use here is nominative only.
 

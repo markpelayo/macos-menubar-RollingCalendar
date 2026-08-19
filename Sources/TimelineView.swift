@@ -26,6 +26,9 @@ final class TimelineView: NSView {
         didSet { needsDisplay = true }
     }
 
+    /// How long before a block ends the left label starts shouting.
+    static var urgentThreshold: TimeInterval { Config.urgentSeconds }
+
     override var isFlipped: Bool { false }
 
     /// Let clicks fall through to the status bar button so the menu still opens.
@@ -34,11 +37,24 @@ final class TimelineView: NSView {
     // MARK: - What the gutters say
 
     private struct Gutters {
-        var left: String?
-        var right: String?
+        /// Attributed rather than plain, so one run can be bold — the simulated
+        /// marker — while the rest of the label stays at normal weight.
+        var left: NSAttributedString?
+        var right: NSAttributedString?
         var leftWidth: CGFloat = 0
         var rightWidth: CGFloat = 0
-        var leftIsUrgent = false
+    }
+
+    /// One run of a gutter label.
+    private struct Segment {
+        let text: String
+        var bold = false
+        /// Only the event name may be shortened; badges and times never are.
+        var truncatable = false
+    }
+
+    private var isDarkAppearance: Bool {
+        effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
     }
 
     /// A zero-length event — a reminder pinned to an instant — has no width to
@@ -65,19 +81,33 @@ final class TimelineView: NSView {
 
         let cap = Config.maxLabelWidth
         let current = Self.pickChained(from: runningBlocks, all: timed, preferSoonestEnd: true)
+        // Said in words rather than by tinting anything — the whole point of
+        // simulating a time is to see the real colours at that time. It's the
+        // only bold run in the label, so it reads as an annotation.
+        let marker = Config.isSimulating ? "(❗Simulated❗)" : ""
+        let normalInk: NSColor = isDarkAppearance ? .white : .black
 
         if let current {
             let remaining = current.end.timeIntervalSince(now)
+            // Red and bold for the last two minutes — colour alone was easy to
+            // miss at a glance.
+            let urgent = remaining <= Self.urgentThreshold
             // 🔴 means "two things want you right now". It counts only what is
             // genuinely concurrent, so a reminder that fires and finishes in the
             // same instant raises the flag briefly and then lets it go, rather
             // than nagging for the rest of a long block.
             let clash = running.count
-            let badge = clash > 1 ? "🔴(\(clash))" : ""
-            let time = Config.showNowTimeLeft ? "(\(Self.format(remaining)))" : ""
-            let name = Config.showNowName ? current.title : ""
-            g.left = Self.assemble(badge: badge, name: name, time: time, badgeLeading: true, cap: cap)
-            g.leftIsUrgent = remaining <= 120
+            g.left = Self.compose([
+                Segment(text: marker, bold: true),
+                Segment(text: clash > 1 ? "🔴(\(clash))" : ""),
+                Segment(text: Config.showNowName ? current.title : "", truncatable: true),
+                Segment(text: Config.showNowTimeLeft ? "(\(Self.format(remaining)))" : "")
+            ], cap: cap, color: urgent ? .systemRed : normalInk,
+               baseBold: urgent, alignment: .right)
+        } else if Config.isSimulating {
+            // Nothing running, but still say we're pretending.
+            g.left = Self.compose([Segment(text: marker, bold: true)],
+                                  cap: cap, color: normalInk, baseBold: false, alignment: .right)
         }
 
         if let next = Self.pickChained(from: upcomingBlocks, all: timed, preferSoonestEnd: false) {
@@ -89,75 +119,88 @@ final class TimelineView: NSView {
             var colliding = upcoming.filter { Self.overlaps($0, next) }
             if let current, Self.overlaps(current, next) { colliding.append(current) }
             let clash = colliding.count
-            let badge = clash > 1 ? "🔴(\(clash))" : ""
-            // How long that block runs for.
-            let time = Config.showNextDuration
-                ? "(\(Self.format(next.end.timeIntervalSince(next.start))))" : ""
-            let name = Config.showNextName ? next.title : ""
-            g.right = Self.assemble(badge: badge, name: name, time: time, badgeLeading: false, cap: cap)
+            g.right = Self.compose([
+                // How long that block runs for.
+                Segment(text: Config.showNextDuration
+                        ? "(\(Self.format(next.end.timeIntervalSince(next.start))))" : ""),
+                Segment(text: Config.showNextName ? next.title : "", truncatable: true),
+                Segment(text: clash > 1 ? "🔴(\(clash))" : "")
+            ], cap: cap, color: normalInk, baseBold: false, alignment: .left)
         }
 
-        if let l = g.left { g.leftWidth = min(Self.width(of: l), cap) }
-        if let r = g.right { g.rightWidth = min(Self.width(of: r), cap) }
+        if let l = g.left { g.leftWidth = min(ceil(l.size().width) + 1, cap) }
+        if let r = g.right { g.rightWidth = min(ceil(r.size().width) + 1, cap) }
         return g
     }
 
-    /// Builds a gutter label, letting it grow with the event's name but capping
-    /// it at `cap`. The badge and the time are never sacrificed — only the name
-    /// is shortened, since a truncated countdown would be useless.
+    /// Joins segments with single spaces into one label. Only the truncatable
+    /// segment is shortened to respect `cap`, so badges, markers and countdowns
+    /// are never sacrificed to a long event name.
     ///
-    ///   badgeLeading true:   🔴(2) Some Very Long Meet… (5m)
-    ///   badgeLeading false:  (16h) Some Very Long Meet… 🔴(2)
-    private static func assemble(badge: String, name: String, time: String,
-                                 badgeLeading: Bool, cap: CGFloat) -> String? {
-        var fixed: [String] = []
-        if badgeLeading {
-            if !badge.isEmpty { fixed.append(badge) }
-            if !time.isEmpty { fixed.append(time) }
-        } else {
-            if !time.isEmpty { fixed.append(time) }
-            if !badge.isEmpty { fixed.append(badge) }
-        }
+    ///   left:   (❗Simulated❗) 🔴(2) Some Very Long Meet… (5m)
+    ///   right:  (16h) Some Very Long Meet… 🔴(2)
+    private static func compose(_ segments: [Segment], cap: CGFloat, color: NSColor,
+                                baseBold: Bool, alignment: NSTextAlignment) -> NSAttributedString? {
+        let parts = segments.filter { !$0.text.isEmpty }
+        guard !parts.isEmpty else { return nil }
 
-        guard !name.isEmpty else {
-            let joined = fixed.joined(separator: " ")
-            return joined.isEmpty ? nil : joined
-        }
+        // Everything that can't shrink, plus the spaces between segments.
+        let fixedWidth = parts
+            .filter { !$0.truncatable }
+            .reduce(CGFloat(0)) { $0 + width(of: $1.text, bold: $1.bold || baseBold) }
+        let spacing = width(of: String(repeating: " ", count: max(parts.count - 1, 0)),
+                            bold: baseBold)
 
-        // Room left for the name once the fixed parts and their spaces are set aside.
-        let spacers = String(repeating: " ", count: fixed.count)
-        let budget = cap - width(of: fixed.joined() + spacers)
-        let shown = fitted(name, into: budget)
-
-        var parts: [String] = []
-        if badgeLeading {
-            if !badge.isEmpty { parts.append(badge) }
-            if !shown.isEmpty { parts.append(shown) }
-            if !time.isEmpty { parts.append(time) }
-        } else {
-            if !time.isEmpty { parts.append(time) }
-            if !shown.isEmpty { parts.append(shown) }
-            if !badge.isEmpty { parts.append(badge) }
+        var final: [Segment] = []
+        for segment in parts {
+            guard segment.truncatable else { final.append(segment); continue }
+            let shown = fitted(segment.text, into: cap - fixedWidth - spacing,
+                               bold: segment.bold || baseBold)
+            if !shown.isEmpty {
+                final.append(Segment(text: shown, bold: segment.bold))
+            }
         }
-        let joined = parts.joined(separator: " ")
-        return joined.isEmpty ? nil : joined
+        guard !final.isEmpty else { return nil }
+
+        let style = NSMutableParagraphStyle()
+        style.alignment = alignment
+        style.lineBreakMode = .byClipping     // already fitted above
+
+        let out = NSMutableAttributedString()
+        for (index, segment) in final.enumerated() {
+            if index > 0 {
+                out.append(NSAttributedString(string: " ", attributes: [
+                    .font: labelFont(bold: baseBold),
+                    .foregroundColor: color,
+                    .paragraphStyle: style
+                ]))
+            }
+            out.append(NSAttributedString(string: segment.text, attributes: [
+                .font: labelFont(bold: segment.bold || baseBold),
+                .foregroundColor: color,
+                .paragraphStyle: style
+            ]))
+        }
+        return out
     }
 
     /// Trim a name to fit, with an ellipsis. Returns "" if there's no room worth using.
-    private static func fitted(_ text: String, into available: CGFloat) -> String {
+    private static func fitted(_ text: String, into available: CGFloat,
+                               bold: Bool = false) -> String {
         guard available > 12 else { return "" }
-        let full = width(of: text)
+        let full = width(of: text, bold: bold)
         if full <= available { return text }
 
         // Start from a proportional guess rather than trimming one glyph at a time.
         let ratio = Double(available / max(full, 1))
         var chars = Array(text.prefix(max(1, Int(Double(text.count) * ratio))))
         while !chars.isEmpty,
-              width(of: String(chars).trimmingCharacters(in: .whitespaces) + "…") > available {
+              width(of: String(chars).trimmingCharacters(in: .whitespaces) + "…", bold: bold) > available {
             chars.removeLast()
         }
         while chars.count < text.count,
-              width(of: String(text.prefix(chars.count + 1)).trimmingCharacters(in: .whitespaces) + "…") <= available {
+              width(of: String(text.prefix(chars.count + 1)).trimmingCharacters(in: .whitespaces) + "…",
+                    bold: bold) <= available {
             chars.append(text[text.index(text.startIndex, offsetBy: chars.count)])
         }
         let trimmed = String(chars).trimmingCharacters(in: .whitespaces)
@@ -237,22 +280,14 @@ final class TimelineView: NSView {
                            width: max(bounds.width - leftGutter - rightGutter, 1),
                            height: bounds.height)
 
-        // --- Gutters ---
+        // --- Gutters --- colours and weights are already baked into the text
         if let text = g.left {
-            drawLabel(text,
-                      in: CGRect(x: bounds.minX, y: bounds.minY,
-                                 width: g.leftWidth, height: bounds.height),
-                      color: g.leftIsUrgent ? .systemRed : (isDark ? .white : .black),
-                      alignment: .right)
+            draw(text, in: CGRect(x: bounds.minX, y: bounds.minY,
+                                  width: g.leftWidth, height: bounds.height))
         }
         if let text = g.right {
-            // Same weight and colour as the left label — the old dimmed grey
-            // was hard to read against the menu bar.
-            drawLabel(text,
-                      in: CGRect(x: strip.maxX + gap, y: bounds.minY,
-                                 width: g.rightWidth, height: bounds.height),
-                      color: isDark ? .white : .black,
-                      alignment: .left)
+            draw(text, in: CGRect(x: strip.maxX + gap, y: bounds.minY,
+                                  width: g.rightWidth, height: bounds.height))
         }
 
         // --- Timeline ---
@@ -294,11 +329,16 @@ final class TimelineView: NSView {
                 : min(rect.height, rect.width) / 2
             let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
 
-            let base = ev.color ?? NSColor.systemGreen
-            let future = base.withAlphaComponent(Config.solidBlocks ? 0.95 : (isDark ? 0.32 : 0.24))
+            // No keyword rule and no colour from the calendar: neutral grey, so
+            // "not classified yet" is obvious rather than masquerading as green.
+            let base = ev.color ?? Config.unmatchedColour
+            // Fully opaque, so the colour drawn is exactly the colour asked for
+            // — at 95% the menu bar behind it shifted every hue slightly.
+            let future = Config.solidBlocks ? base
+                                            : base.withAlphaComponent(isDark ? 0.32 : 0.24)
             // Elapsed time reads paler, so a block visibly fades as it passes now.
             let past = (base.highlight(withLevel: isDark ? 0.45 : 0.6) ?? base)
-                .withAlphaComponent(Config.solidBlocks ? 0.85 : (isDark ? 0.18 : 0.14))
+                .withAlphaComponent(Config.solidBlocks ? 1.0 : (isDark ? 0.18 : 0.14))
 
             future.setFill()
             path.fill()
@@ -320,8 +360,8 @@ final class TimelineView: NSView {
             let outline = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5),
                                        xRadius: radius, yRadius: radius)
             outline.lineWidth = 1
-            let inkFuture = (isDark ? NSColor.black : NSColor.black).withAlphaComponent(0.6)
-            let inkPast = (isDark ? NSColor.black : NSColor.black).withAlphaComponent(0.25)
+            let inkFuture = NSColor.black.withAlphaComponent(0.6)
+            let inkPast = NSColor.black.withAlphaComponent(0.25)
 
             if rect.minX < nowX {
                 ctx.saveGState()
@@ -343,13 +383,6 @@ final class TimelineView: NSView {
             }
         }
 
-        // A simulated clock tints the whole timeline, so it can't be left on by
-        // accident — the strip looks visibly different from the real thing.
-        if Config.isSimulating {
-            NSColor.systemPurple.withAlphaComponent(0.16).setFill()
-            ctx.fill(strip)
-        }
-
         // --- Now line, drawn last so it stays on top ---
         // A faint halo either side lifts it off the coloured blocks; without it
         // the red can disappear against a warm-toned capsule.
@@ -367,27 +400,47 @@ final class TimelineView: NSView {
 
     // MARK: - Text
 
-    private static func attributes(_ color: NSColor,
-                                   _ alignment: NSTextAlignment) -> [NSAttributedString.Key: Any] {
+    /// The menu bar's own font, optionally bolded for the final countdown.
+    private static func labelFont(bold: Bool) -> NSFont {
+        let base = NSFont.menuBarFont(ofSize: Config.titleFontSize)
+        return bold ? NSFontManager.shared.convert(base, toHaveTrait: .boldFontMask) : base
+    }
+
+    private static func attributes(_ color: NSColor, _ alignment: NSTextAlignment,
+                                   bold: Bool = false) -> [NSAttributedString.Key: Any] {
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byTruncatingTail
         style.alignment = alignment
         return [
-            // Same font macOS uses for menu bar labels.
-            .font: NSFont.menuBarFont(ofSize: Config.titleFontSize),
+            .font: labelFont(bold: bold),
             .foregroundColor: color,
             .paragraphStyle: style
         ]
     }
 
-    static func width(of s: String) -> CGFloat {
-        ceil(NSAttributedString(string: s, attributes: attributes(.black, .left)).size().width) + 1
+    /// Measured in the same weight it will be drawn in — bold is wider, and the
+    /// gutter is sized from this, so a mismatch would clip the name.
+    static func width(of s: String, bold: Bool = false) -> CGFloat {
+        ceil(NSAttributedString(string: s, attributes: attributes(.black, .left, bold: bold))
+                .size().width) + 1
     }
 
-    private func drawLabel(_ s: String, in rect: CGRect, color: NSColor,
-                           alignment: NSTextAlignment) {
+    /// Draws a pre-built label, vertically centred. Alignment and colour come
+    /// from the string's own attributes.
+    private func draw(_ text: NSAttributedString, in rect: CGRect) {
         guard rect.width > 2 else { return }
-        let attributed = NSAttributedString(string: s, attributes: Self.attributes(color, alignment))
+        let h = text.size().height
+        text.draw(with: CGRect(x: rect.minX, y: rect.midY - h / 2,
+                               width: rect.width, height: h),
+                  options: [.usesLineFragmentOrigin])
+    }
+
+    /// Plain single-weight label, used for the error message.
+    private func drawLabel(_ s: String, in rect: CGRect, color: NSColor,
+                           alignment: NSTextAlignment, bold: Bool = false) {
+        guard rect.width > 2 else { return }
+        let attributed = NSAttributedString(string: s,
+                                            attributes: Self.attributes(color, alignment, bold: bold))
         let h = attributed.size().height
         attributed.draw(with: CGRect(x: rect.minX, y: rect.midY - h / 2,
                                      width: rect.width, height: h),
@@ -409,7 +462,7 @@ final class TimelineView: NSView {
 // MARK: - Colour helpers
 
 extension CalEvent {
-    /// Google's event colour, if we have one.
+    /// The block's colour, if a keyword rule gave it one.
     var color: NSColor? {
         guard let colorHex else { return nil }
         return NSColor(hexString: colorHex)

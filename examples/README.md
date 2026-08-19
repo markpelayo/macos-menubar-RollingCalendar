@@ -37,11 +37,11 @@ Google's "Oops, we couldn't import this file" is generic and tells you nothing. 
 5. Check the download didn't land as `.ics.txt`
 6. Wait and retry; the error is sometimes genuinely transient
 
-Or skip Google entirely: **Demo Mode** generates the same grid inside the app, and pointing **Set Calendar Link…** at `file:///absolute/path/to/15min-blocks-recurring.ics` reads a local file directly (that path exercises the app's own ICS parser, which is a useful A/B against the Google path).
+Or skip importing entirely: **Demo Mode** generates the same grid inside the app, and **Add Calendar…** accepts `file:///absolute/path/to/15min-blocks-recurring.ics` to read a local file directly — no publishing, no waiting on Google's feed cache.
 
-## Adding colour
+## Colour
 
-`.ics` has no colour field, so imported blocks all take the new calendar's colour. To see per-event colouring, open a few events in Google Calendar and assign different colours by hand — those are the `colorId` values the API returns. Requires Google sign-in; feed mode stays green.
+`.ics` has no colour field, so colour comes from [keyword rules](../README.md#keyword-colors) instead. Import `keyword-colors.csv` alongside these blocks and the test day arrives already colour-coded — `Sleep` green, `Focus Work` blue, and so on. Anything with no matching keyword draws in neutral grey.
 
 ## Regenerating
 

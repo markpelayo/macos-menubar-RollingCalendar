@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 
 // MARK: - Configuration
 
@@ -111,23 +112,6 @@ enum Config {
         addProfile(name: CalendarSource.label(for: input), link: input)
     }
 
-    // MARK: Google mode
-
-    /// Which Google calendar to read. "primary" is the account's own calendar —
-    /// the one named after you in Google Calendar's sidebar.
-    static var googleCalendarID: String {
-        UserDefaults.standard.string(forKey: "googleCalendarID") ?? "primary"
-    }
-
-    static var googleCalendarName: String {
-        UserDefaults.standard.string(forKey: "googleCalendarName") ?? "Primary calendar"
-    }
-
-    static func setGoogleCalendar(id: String, name: String) {
-        UserDefaults.standard.set(id, forKey: "googleCalendarID")
-        UserDefaults.standard.set(name, forKey: "googleCalendarName")
-    }
-
     // MARK: Appearance
 
     // Factory settings, and what "Restore Defaults" puts back.
@@ -191,7 +175,7 @@ enum Config {
             && labelKeys.allSatisfy { flag($0) }
     }
 
-    /// Back to ± 1 hour, 250 pt timeline, 300 pt labels, every label switched on.
+    /// Back to ± 1 hour, 250 pt timeline, 360 pt labels, every label switched on.
     static func restoreAppearanceDefaults() {
         let d = UserDefaults.standard
         d.removeObject(forKey: "windowMinutes")
@@ -203,7 +187,7 @@ enum Config {
     /// Ceiling on each gutter, so one absurdly long event title can't swallow
     /// the whole menu bar. Labels still size themselves to their content; this
     /// is only the point at which the name starts being shortened.
-    static let defaultMaxLabelWidth = 300.0
+    static let defaultMaxLabelWidth = 360.0
 
     static var maxLabelWidth: CGFloat {
         let v = UserDefaults.standard.double(forKey: "maxLabelWidth")
@@ -221,6 +205,31 @@ enum Config {
     static var blockGap: CGFloat {
         let v = UserDefaults.standard.double(forKey: "blockGap")
         return v > 0 ? CGFloat(v) : 1.0
+    }
+
+    /// How many seconds before a block ends the left label turns red and bold.
+    static var urgentSeconds: TimeInterval {
+        let v = UserDefaults.standard.double(forKey: "urgentSeconds")
+        return v > 0 ? v : 120
+    }
+
+    /// The block that marks the start of your day in the dropdown. Everything
+    /// from this block to the next one is listed, so a night shift reads as one
+    /// stretch instead of being cut at midnight.
+    static var dayAnchorKeyword: String {
+        let v = UserDefaults.standard.string(forKey: "dayAnchorKeyword")
+        return (v?.isEmpty == false) ? v! : "sleep"
+    }
+
+    /// Colour for a block that matched no keyword rule and carries no colour of
+    /// its own. Deliberately neutral — an unclassified event mustn't look like a
+    /// category, which is exactly what a green default did.
+    static var unmatchedColour: NSColor {
+        if let hex = UserDefaults.standard.string(forKey: "unmatchedColor"),
+           let colour = NSColor(hexString: hex) {
+            return colour
+        }
+        return NSColor(hexString: "#8E8E93") ?? .systemGray
     }
 
     /// Thickness of the red "now" line, in points.
@@ -252,14 +261,14 @@ enum Config {
         if let explicit = UserDefaults.standard.object(forKey: "demoMode") as? Bool {
             return explicit
         }
-        return !hasCalendarInput && !GoogleAuth.shared.isSignedIn
+        return !hasCalendarInput
     }
 
     static func setDemoMode(_ on: Bool) {
         UserDefaults.standard.set(on, forKey: "demoMode")
     }
 
-    /// Filled blocks like Google Calendar's day view (vs. translucent tint).
+    /// Filled blocks, like a calendar's day view (vs. translucent tint).
     static var solidBlocks: Bool {
         UserDefaults.standard.object(forKey: "solidBlocks") as? Bool ?? true
     }
@@ -314,11 +323,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var redrawTimer: Timer?
     private var fetchTimer: Timer?
     private var lastFetch: Date?
-    private var todaysEvents: [CalEvent] = []
-
-    // Google mode caches
-    private var googleCalendars: [GCalendarInfo] = []
-    private var eventPalette: [String: String] = [:]
+    /// What the dropdown lists — one sleep-to-sleep cycle, not one calendar day.
+    private var menuEvents: [CalEvent] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Width is recomputed from the label text on every tick — see resize().
@@ -347,6 +353,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         installEditMenu()
         Config.adoptLegacyCalendarIfNeeded()
+        KeywordRules.seedSampleRulesIfFirstRun()
 
         _ = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
@@ -403,113 +410,82 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func fetch() {
         if Config.demoMode {
             loadDemoEvents()
-        } else if GoogleAuth.shared.isSignedIn {
-            fetchFromGoogle()
         } else {
             fetchFromICS()
         }
     }
 
-    /// The window we ask for: today, plus a margin so blocks that straddle
-    /// midnight still render at the edges of the strip.
+    /// What to fetch. Wider than today, because the dropdown lists a whole
+    /// sleep-to-sleep cycle and that can reach well into tomorrow — or start
+    /// yesterday morning, on a night shift.
     private func dayBounds() -> (dayStart: Date, dayEnd: Date, from: Date, to: Date) {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = Config.displayTimeZone
         let now = Clock.now
         let dayStart = cal.startOfDay(for: now)
         let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86400)
-        // Overshoot the day so blocks straddling midnight still render, and so
-        // the "next up" label can see past the end of the visible window.
-        let margin = max(Config.windowMinutes * 60, 3600)
-        return (dayStart, dayEnd, dayStart.addingTimeInterval(-margin), dayEnd.addingTimeInterval(margin))
+        let from = cal.date(byAdding: .day, value: -1, to: dayStart) ?? dayStart.addingTimeInterval(-86400)
+        let to = cal.date(byAdding: .day, value: 2, to: dayStart) ?? dayEnd.addingTimeInterval(86400)
+        return (dayStart, dayEnd, from, to)
+    }
+
+    /// The dropdown's list: everything from the anchor block that opened the
+    /// current cycle through to the next one, so you see the shape of the whole
+    /// day in one go. Falls back to the calendar day when no anchor exists.
+    private func cycleEvents(_ all: [CalEvent], now: Date) -> [CalEvent] {
+        let bounds = dayBounds()
+        let sorted = all.sorted { $0.start < $1.start }
+
+        /// Used whenever there's no anchor to work from: today so far, plus a
+        /// rolling 24 hours. Never "today only" — that hides everything after
+        /// midnight even while the strip is already showing it.
+        func rolling() -> [CalEvent] {
+            let ahead = now.addingTimeInterval(24 * 3600)
+            return sorted.filter { $0.end > bounds.dayStart && $0.start <= ahead }
+        }
+
+        let anchors = sorted.filter {
+            KeywordRules.title($0.title, contains: Config.dayAnchorKeyword)
+        }
+        guard !anchors.isEmpty else { return rolling() }
+
+        // A sleep split into back-to-back chunks is still one sleep, so merge
+        // adjacent anchor blocks into runs before picking the boundaries.
+        var runs: [(start: Date, end: Date)] = []
+        for anchor in anchors {
+            if let last = runs.last, anchor.start <= last.end.addingTimeInterval(1800) {
+                runs[runs.count - 1].end = max(last.end, anchor.end)
+            } else {
+                runs.append((anchor.start, anchor.end))
+            }
+        }
+
+        // The run that opened the cycle we're in. If the day's anchor hasn't
+        // happened yet, roll instead of starting the list in the future.
+        guard let opener = runs.last(where: { $0.start <= now }) else { return rolling() }
+        let closer = runs.first { $0.start > opener.start }
+        let cutoff = closer?.start ?? bounds.to
+
+        return sorted.filter { $0.start >= opener.start && $0.start <= cutoff }
     }
 
     // MARK: Demo blocks
 
     private func loadDemoEvents() {
         let bounds = dayBounds()
-        let all = DemoData.events(around: Clock.now, timeZone: Config.displayTimeZone)
+        let all = KeywordRules.apply(to: DemoData.events(around: Clock.now,
+                                                         timeZone: Config.displayTimeZone))
         timeline.errorMessage = nil
         timeline.events = all.filter { $0.intersects(bounds.from, bounds.to) }
-        todaysEvents = all.filter { $0.intersects(bounds.dayStart, bounds.dayEnd) }
+        menuEvents = cycleEvents(all, now: Clock.now)
         lastFetch = Date()
     }
 
-    // MARK: Google
-
-    private func fetchFromGoogle() {
-        GoogleAuth.shared.withAccessToken { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .failure(let error):
-                self.showFailure(error)
-            case .success(let token):
-                self.loadGoogleMetadata(token: token) {
-                    self.loadGoogleEvents(token: token)
-                }
-            }
-        }
-    }
-
-    /// Colour palette + calendar list, fetched once and reused.
-    private func loadGoogleMetadata(token: String, then: @escaping () -> Void) {
-        let group = DispatchGroup()
-
-        if eventPalette.isEmpty {
-            group.enter()
-            GoogleCalendarAPI.eventPalette(token: token) { [weak self] result in
-                if case .success(let map) = result { self?.eventPalette = map }
-                group.leave()
-            }
-        }
-        if googleCalendars.isEmpty {
-            group.enter()
-            GoogleCalendarAPI.calendarList(token: token) { [weak self] result in
-                if case .success(let list) = result { self?.googleCalendars = list }
-                group.leave()
-            }
-        }
-        group.notify(queue: .main, execute: then)
-    }
-
-    private func selectedGoogleCalendar() -> GCalendarInfo? {
-        let id = Config.googleCalendarID
-        if id == "primary" { return googleCalendars.first(where: { $0.primary }) }
-        return googleCalendars.first(where: { $0.id == id })
-    }
-
-    private func loadGoogleEvents(token: String) {
-        let bounds = dayBounds()
-        let fallback = selectedGoogleCalendar()?.backgroundColor
-
-        GoogleCalendarAPI.events(calendarID: Config.googleCalendarID,
-                                 token: token,
-                                 from: bounds.from,
-                                 to: bounds.to,
-                                 palette: eventPalette,
-                                 fallbackColor: fallback) { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .failure(let error):
-                self.showFailure(error)
-            case .success(let events):
-                self.timeline.errorMessage = nil
-                self.timeline.events = events
-                self.todaysEvents = events.filter { $0.intersects(bounds.dayStart, bounds.dayEnd) }
-                self.lastFetch = Date()
-                // Keep the display name in step with what Google calls it.
-                if let cal = self.selectedGoogleCalendar(), cal.summary != Config.googleCalendarName {
-                    Config.setGoogleCalendar(id: Config.googleCalendarID, name: cal.summary)
-                }
-            }
-        }
-    }
-
-    // MARK: Public .ics feed (used when not signed in)
+    // MARK: The calendar feed
 
     private func fetchFromICS() {
         guard let ics = Config.icsURL, let url = URL(string: ics) else {
-            timeline.errorMessage = "No calendar yet — click to set one up"
+            showFailure("No calendar yet — click to set one up")
             return
         }
 
@@ -518,13 +494,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             do {
                 let text = try String(contentsOf: url, encoding: .utf8)
                 guard text.contains("BEGIN:VCALENDAR") else {
-                    timeline.errorMessage = "That file isn't iCalendar"
+                    showFailure("That file isn't iCalendar")
                     return
                 }
                 timeline.errorMessage = nil
                 applyICS(text)
             } catch {
-                timeline.errorMessage = "Can't read file: \(error.localizedDescription)"
+                showFailure("Can't read file: \(error.localizedDescription)")
             }
             return
         }
@@ -537,16 +513,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let self else { return }
             DispatchQueue.main.async {
                 if let error {
-                    self.timeline.errorMessage = "Calendar unreachable (\(error.localizedDescription))"
+                    self.showFailure("Calendar unreachable (\(error.localizedDescription))")
                     return
                 }
                 if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-                    self.timeline.errorMessage = "Calendar HTTP \(http.statusCode) — sign in with Google, or make the feed public"
+                    self.showFailure("Calendar HTTP \(http.statusCode) — is the feed public?")
                     return
                 }
                 guard let data, let text = String(data: data, encoding: .utf8),
                       text.contains("BEGIN:VCALENDAR") else {
-                    self.timeline.errorMessage = "Feed is not valid iCalendar"
+                    self.showFailure("Feed is not valid iCalendar")
                     return
                 }
                 self.timeline.errorMessage = nil
@@ -559,13 +535,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = Config.displayTimeZone
         let today = Clock.now
-        let days = [-1, 0, 1].compactMap { cal.date(byAdding: .day, value: $0, to: today) }
+        // Yesterday through the day after tomorrow, so the dropdown's
+        // sleep-to-sleep cycle can always find both of its anchors.
+        let days = [-1, 0, 1, 2].compactMap { cal.date(byAdding: .day, value: $0, to: today) }
 
-        let all = ICS.events(from: ics, days: days, calendar: cal)
+        let all = KeywordRules.apply(to: ICS.events(from: ics, days: days, calendar: cal))
         let bounds = dayBounds()
 
         timeline.events = all.filter { $0.intersects(bounds.from, bounds.to) }
-        todaysEvents = all.filter { $0.intersects(bounds.dayStart, bounds.dayEnd) }
+        menuEvents = cycleEvents(all, now: Clock.now)
         lastFetch = Date()
     }
 
@@ -576,7 +554,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let df = DateFormatter()
         df.locale = Locale(identifier: "en_US_POSIX")
-        df.dateFormat = "h:mm a"
+        // Zero-padded hours, so every row's time column is the same width.
+        df.dateFormat = "hh:mm a"
         df.timeZone = Config.displayTimeZone
 
         let dayFormatter = DateFormatter()
@@ -602,29 +581,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        // --- Today's events ---
+        // --- The day's blocks, one anchor-to-anchor cycle ---
         if let msg = timeline.errorMessage {
             addInfo(msg, to: menu)
-        } else if todaysEvents.isEmpty {
-            addInfo("No events today", to: menu)
+        } else if menuEvents.isEmpty {
+            addInfo("Nothing scheduled", to: menu)
         } else {
             let now = Clock.now
-            for ev in todaysEvents {
-                let time = ev.isAllDay ? "All day" : "\(df.string(from: ev.start)) – \(df.string(from: ev.end))"
-                let item = NSMenuItem(title: "\(time)   \(ev.title)", action: nil, keyEquivalent: "")
-                let isNow = ev.start <= now && ev.end > now
-                var attrs: [NSAttributedString.Key: Any] = [.font: NSFont.menuFont(ofSize: 0)]
-                if ev.end <= now {
-                    attrs[.foregroundColor] = NSColor.tertiaryLabelColor
+            var cal = Calendar(identifier: .gregorian)
+            cal.timeZone = Config.displayTimeZone
+            let dayBreak = DateFormatter()
+            dayBreak.dateFormat = "EEEE, MMMM d"
+            dayBreak.timeZone = Config.displayTimeZone
+
+            // The cycle spans two dates, so mark where one day becomes the next
+            // — otherwise today's 4:30 AM and tomorrow's look identical.
+            var lastDay: Date?
+            let today = cal.startOfDay(for: now)
+            var shown = 0
+            // Columns sized once, from the whole list.
+            let layout = Self.rowLayout(menuEvents, df)
+
+            for ev in menuEvents {
+                if shown >= 60 {
+                    addInfo("… and \(menuEvents.count - shown) more", to: menu)
+                    break
                 }
-                item.attributedTitle = NSAttributedString(
-                    string: isNow ? "▶︎ \(time)   \(ev.title)" : "\(time)   \(ev.title)",
-                    attributes: attrs)
-                // A colour swatch matching the block on the strip.
-                if let color = ev.color {
-                    item.image = Self.swatch(color)
+                let day = cal.startOfDay(for: ev.start)
+                if day != lastDay, lastDay != nil || day != today {
+                    addInfo(dayBreak.string(from: day), to: menu)
                 }
+                lastDay = day
+
+                let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+                item.attributedTitle = Self.eventRow(
+                    ev, now: now, formatter: df, layout: layout,
+                    overlaps: Self.overlapCount(ev, in: menuEvents))
                 menu.addItem(item)
+                shown += 1
             }
         }
 
@@ -653,10 +647,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         length.submenu = labelLengthMenu()
         menu.addItem(length)
 
+        let keywords = NSMenuItem(title: "Keyword Colors", action: nil, keyEquivalent: "")
+        keywords.submenu = keywordColoursMenu()
+        menu.addItem(keywords)
+
         let restore = add("Restore Defaults", #selector(restoreDefaults), to: menu)
         restore.isEnabled = !Config.isAppearanceDefault
         restore.toolTip = restore.isEnabled
-            ? "Back to ± 1 hour, a 250 pt timeline, 300 pt labels and all labels on"
+            ? "Back to ± 1 hour, a 250 pt timeline, 360 pt labels and all labels on"
             : "Already at the default settings"
 
         menu.addItem(.separator())
@@ -664,13 +662,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // --- Which source is live ---
         if Config.demoMode {
             addInfo("Calendar: demo blocks (test data)", to: menu)
-        } else if GoogleAuth.shared.isSignedIn {
-            addInfo("Calendar: \(Config.googleCalendarName)", to: menu)
-            let picker = NSMenuItem(title: "Choose Calendar", action: nil, keyEquivalent: "")
-            picker.submenu = calendarPickerMenu()
-            menu.addItem(picker)
         } else if let name = Config.calendarDisplayName {
-            addInfo("Calendar: \(name) (public feed)", to: menu)
+            addInfo("Calendar: \(name)", to: menu)
         } else {
             addInfo("No calendar set up yet", to: menu)
         }
@@ -680,29 +673,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         demoItem.state = Config.demoMode ? .on : .off
         demoItem.toolTip = "Synthetic 15-minute blocks, to check the strip moves correctly"
 
-        // --- Setup, also reachable in every state (including demo mode) ---
-        if GoogleAuth.shared.isSignedIn {
-            add("Google Sign-In Setup…", #selector(setUpGoogle), to: menu)
-            add("Sign Out of Google", #selector(signOutOfGoogle), to: menu)
+        if Config.profiles.isEmpty {
+            add("Add Calendar…", #selector(addCalendarProfile), to: menu)
         } else {
-            if GoogleAuth.shared.isConfigured {
-                add("Sign in with Google…", #selector(signInToGoogle), to: menu)
-                add("Google Sign-In Setup…", #selector(setUpGoogle), to: menu)
-            } else {
-                add("Set Up Google Sign-In…  (for colours)", #selector(setUpGoogle), to: menu)
-            }
-            if Config.profiles.isEmpty {
-                add("Add Calendar…", #selector(addCalendarProfile), to: menu)
-            } else {
-                let saved = NSMenuItem(title: "Saved Calendars", action: nil, keyEquivalent: "")
-                saved.submenu = savedCalendarsMenu()
-                menu.addItem(saved)
-            }
-            if Config.hasCalendarInput {
-                add("Copy Feed URL", #selector(copyFeedURL), to: menu)
-            }
+            let saved = NSMenuItem(title: "Saved Calendars", action: nil, keyEquivalent: "")
+            saved.submenu = savedCalendarsMenu()
+            // Ticked when a saved calendar is what's actually being read, so it
+            // reads as the counterpart to Demo Mode above it.
+            saved.state = (!Config.demoMode && Config.hasCalendarInput) ? .on : .off
+            menu.addItem(saved)
         }
-        add("Open Google Calendar", #selector(openCalendar), to: menu)
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -761,12 +741,95 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return sub
     }
 
+    /// Imported keyword → color rules, grouped by the CSV's category column.
+    private func keywordColoursMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        func info(_ text: String) {
+            let item = NSMenuItem(title: text, action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            sub.addItem(item)
+        }
+
+        let rules = KeywordRules.rules
+
+        /// The colour a block gets when nothing matches — worth showing either
+        /// way, so grey on the strip is recognisable rather than a mystery.
+        func addUncategorized() {
+            let item = NSMenuItem(title: "Uncategorized  ·  no keyword match",
+                                  action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            item.image = Self.swatch(Config.unmatchedColour)
+            item.toolTip = "Events that match no keyword and carry no colour of their own. "
+                + "Change it with:  defaults write io.github.macos-menubar-rollingcalendar "
+                + "unmatchedColor \"#RRGGBB\""
+            sub.addItem(item)
+        }
+
+        if rules.isEmpty {
+            info("No keyword colors imported")
+            info("CSV columns: category, color, keyword")
+            sub.addItem(.separator())
+            addUncategorized()
+        } else {
+            let source = KeywordRules.sourceName ?? "a CSV"
+            info("\(rules.count) keyword\(rules.count == 1 ? "" : "s") from \(source)")
+            sub.addItem(.separator())
+            for category in KeywordRules.categories {
+                let title = category.name.isEmpty ? "(no category)" : category.name
+                let item = NSMenuItem(title: "\(title)  ·  \(category.count)",
+                                      action: nil, keyEquivalent: "")
+                item.isEnabled = false
+                if let color = NSColor(hexString: category.colorHex) {
+                    item.image = Self.swatch(color)
+                }
+                item.toolTip = KeywordRules.rules
+                    .filter { $0.category == category.name }
+                    .map(\.keyword).joined(separator: ", ")
+                sub.addItem(item)
+            }
+            sub.addItem(.separator())
+            addUncategorized()
+        }
+
+        sub.addItem(.separator())
+        let importItem = NSMenuItem(title: rules.isEmpty ? "Import CSV…" : "Import Another CSV…",
+                                    action: #selector(importKeywordCSV), keyEquivalent: "")
+        importItem.target = self
+        sub.addItem(importItem)
+
+        // A working set in one click, and the same rules saveable as a CSV to
+        // edit — so nobody has to invent a colour scheme from nothing.
+        let useSample = NSMenuItem(title: "Use Sample Colors",
+                                   action: #selector(loadSampleKeywords), keyEquivalent: "")
+        useSample.target = self
+        useSample.toolTip = "Apply a ready-made set covering focus, meetings, health, "
+            + "admin, personal and travel"
+        sub.addItem(useSample)
+
+        let saveSample = NSMenuItem(title: "Save Sample CSV…",
+                                    action: #selector(saveSampleKeywordCSV), keyEquivalent: "")
+        saveSample.target = self
+        saveSample.toolTip = "Write the sample out as a CSV you can edit, then import"
+        sub.addItem(saveSample)
+
+        if !rules.isEmpty {
+            let clear = NSMenuItem(title: "Clear Keyword Colors",
+                                   action: #selector(clearKeywordCSV), keyEquivalent: "")
+            clear.target = self
+            sub.addItem(clear)
+        }
+        return sub
+    }
+
     /// Saved calendar links, one per line, plus the housekeeping actions.
     private func savedCalendarsMenu() -> NSMenu {
         let sub = NSMenu()
         sub.autoenablesItems = false
 
-        let active = Config.activeProfileName
+        // In Demo Mode the saved calendars aren't being read, so none is ticked.
+        let active = Config.demoMode ? nil : Config.activeProfileName
         for profile in Config.profiles {
             let row = CalendarRowView(title: profile.name, isActive: profile.name == active)
             let name = profile.name
@@ -858,28 +921,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return sub
     }
 
-    private func calendarPickerMenu() -> NSMenu {
-        let sub = NSMenu()
-        if googleCalendars.isEmpty {
-            let item = NSMenuItem(title: "Loading…", action: nil, keyEquivalent: "")
-            item.isEnabled = false
-            sub.addItem(item)
-            return sub
-        }
-        let selected = Config.googleCalendarID
-        for cal in googleCalendars.sorted(by: { ($0.primary ? 0 : 1, $0.summary) < ($1.primary ? 0 : 1, $1.summary) }) {
-            let item = NSMenuItem(title: cal.summary, action: #selector(chooseCalendar(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = cal.id
-            item.state = (cal.id == selected || (selected == "primary" && cal.primary)) ? .on : .off
-            if let hex = cal.backgroundColor, let color = NSColor(hexString: hex) {
-                item.image = Self.swatch(color)
-            }
-            sub.addItem(item)
-        }
-        return sub
-    }
-
     // MARK: Menu helpers
 
     private func addInfo(_ title: String, to menu: NSMenu) {
@@ -896,6 +937,126 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return item
     }
 
+    /// One dropdown row:
+    ///
+    ///     ▶︎ 11:00 PM – 12:00 AM  •  ZD Chat+Email  •  ◼︎ Focus Work | Learn
+    ///
+    /// The colour chip sits inline after the name rather than as the item's
+    /// image, which would pin it to the far left.
+    /// Width of a string in a given font, for laying out the columns.
+    private static func textWidth(_ s: String, _ font: NSFont) -> CGFloat {
+        ceil(NSAttributedString(string: s, attributes: [.font: font]).size().width)
+    }
+
+    private static var menuRowFont: NSFont { NSFont.menuFont(ofSize: 0) }
+    /// Tabular figures, so 04:30 lines up under 11:30 — SF's default digits are
+    /// proportional and "1" is narrower than the rest.
+    private static var menuRowMono: NSFont {
+        NSFont.monospacedDigitSystemFont(ofSize: menuRowFont.pointSize, weight: .regular)
+    }
+
+    private static func rowTime(_ ev: CalEvent, _ formatter: DateFormatter) -> String {
+        ev.isAllDay
+            ? "All day"
+            : "\(formatter.string(from: ev.start)) – \(formatter.string(from: ev.end))"
+    }
+
+    private static func rowLength(_ ev: CalEvent) -> String {
+        ev.isAllDay ? "" : TimelineView.format(ev.end.timeIntervalSince(ev.start))
+    }
+
+    /// Tab stops sized to the widest time and duration in the list. Padding with
+    /// spaces can't do this: "7h" and "30m" have the same character count only
+    /// by accident, and `m` is wider than `h`, so the columns still drift.
+    private static func rowLayout(_ events: [CalEvent],
+                                  _ formatter: DateFormatter) -> NSParagraphStyle {
+        let font = menuRowFont, mono = menuRowMono
+        let marker = textWidth("▶︎ ", font)
+        let bullet = textWidth("•", font)
+        let gap: CGFloat = 7
+        let times = events.map { textWidth(rowTime($0, formatter), mono) }.max() ?? 0
+        let lengths = events.map { textWidth(rowLength($0), mono) }.max() ?? 0
+
+        let t1 = marker + gap                 // time
+        let t2 = t1 + times + gap             // •
+        let t3 = t2 + bullet + gap            // duration
+        let t4 = t3 + lengths + gap           // •
+        let t5 = t4 + bullet + gap            // name
+
+        let style = NSMutableParagraphStyle()
+        style.tabStops = [t1, t2, t3, t4, t5].map {
+            NSTextTab(textAlignment: .left, location: $0)
+        }
+        style.lineBreakMode = .byTruncatingTail
+        return style
+    }
+
+    /// How many blocks share time with this one, counting itself. Zero-length
+    /// reminders get a nominal minute, matching the strip's rule.
+    private static func overlapCount(_ ev: CalEvent, in list: [CalEvent]) -> Int {
+        let end = max(ev.end, ev.start.addingTimeInterval(60))
+        return list.filter { other in
+            let otherEnd = max(other.end, other.start.addingTimeInterval(60))
+            return otherEnd > ev.start && other.start < end
+        }.count
+    }
+
+    private static func eventRow(_ ev: CalEvent, now: Date, formatter: DateFormatter,
+                                 layout: NSParagraphStyle,
+                                 overlaps: Int = 1) -> NSAttributedString {
+        let font = menuRowFont, mono = menuRowMono
+        let bold = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
+
+        let isNow = ev.start <= now && ev.end > now
+        let isPast = ev.end <= now
+        let ink: NSColor = isPast ? .tertiaryLabelColor : .labelColor
+        let dim: NSColor = isPast ? .tertiaryLabelColor : .secondaryLabelColor
+
+        let row = NSMutableAttributedString()
+        func text(_ s: String, _ colour: NSColor, _ typeface: NSFont) {
+            row.append(NSAttributedString(string: s, attributes: [
+                .font: typeface, .foregroundColor: colour, .paragraphStyle: layout
+            ]))
+        }
+
+        // Every field starts at a tab stop, so the columns line up exactly.
+        text(isNow ? "▶︎" : "", ink, font)
+        text("\t", dim, font)
+        text(rowTime(ev, formatter), dim, mono)
+        text("\t", dim, font)
+        text("•", dim, font)
+        text("\t", dim, font)
+        text(rowLength(ev), dim, mono)
+        text("\t", dim, font)
+        text("•", dim, font)
+        text("\t", dim, font)
+        text(ev.title, ink, isNow ? bold : font)
+
+        // Category, with its colour as an inline chip.
+        let category = ev.category ?? "Uncategorized"
+        let colour = ev.color ?? Config.unmatchedColour
+        text("  •  ", dim, font)
+        let chip = NSTextAttachment()
+        chip.image = swatch(colour)
+        // Centre the square on the text's optical middle — half the cap height —
+        // rather than sitting it on the baseline, which reads a pixel low.
+        let size: CGFloat = 10
+        chip.bounds = CGRect(x: 0, y: (font.capHeight - size) / 2, width: size, height: size)
+        row.append(NSAttributedString(string: " ", attributes: [
+            .font: font, .paragraphStyle: layout
+        ]))
+        row.append(NSAttributedString(attachment: chip))
+        text(" \(category)", dim, font)
+
+        // Only when this block actually shares time with another. Spelled out
+        // here, unlike on the strip — the dropdown has room to say what it means.
+        if overlaps > 1 {
+            text("  •  🔴(\(overlaps)) Overlapped", dim, font)
+        }
+
+        return row
+    }
+
     private static func swatch(_ color: NSColor) -> NSImage {
         let size = NSSize(width: 10, height: 10)
         let image = NSImage(size: size)
@@ -909,22 +1070,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Actions
 
     @objc private func refreshNow() { fetch() }
-
-    @objc private func openCalendar() {
-        let input = Config.calendarInput ?? ""
-        let target = (input.lowercased().hasPrefix("http") && input.contains("calendar.google.com"))
-            ? input
-            : "https://calendar.google.com/calendar/r/day"
-        if let url = URL(string: target.replacingOccurrences(of: " ", with: "%20")) {
-            NSWorkspace.shared.open(url)
-        }
-    }
-
-    @objc private func copyFeedURL() {
-        guard let ics = Config.icsURL else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(ics, forType: .string)
-    }
 
     @objc private func chooseTimeRange(_ sender: NSMenuItem) {
         guard let minutes = sender.representedObject as? Double else { return }
@@ -1012,91 +1157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         reloadAfterSourceChange()
     }
 
-    @objc private func chooseCalendar(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? String else { return }
-        Config.setGoogleCalendar(id: id, name: sender.title)
-        reloadAfterSourceChange()
-    }
-
-    // MARK: Google sign-in
-
-    @objc private func signInToGoogle() {
-        NSApp.activate(ignoringOtherApps: true)
-        GoogleAuth.shared.signIn { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .success:
-                self.googleCalendars = []
-                self.eventPalette = [:]
-                Config.setDemoMode(false)   // real calendar wins over test data
-                self.reloadAfterSourceChange()
-            case .failure(let error):
-                self.showError("Couldn't sign in", error.localizedDescription)
-            }
-        }
-    }
-
-    @objc private func signOutOfGoogle() {
-        GoogleAuth.shared.signOut()
-        googleCalendars = []
-        eventPalette = [:]
-        // Don't carry a calendar selection over to whatever account signs in next.
-        Config.setGoogleCalendar(id: "primary", name: "Primary calendar")
-        reloadAfterSourceChange()
-    }
-
-    @objc private func setUpGoogle() {
-        NSApp.activate(ignoringOtherApps: true)
-
-        let alert = NSAlert()
-        alert.messageText = "Google Sign-In Setup"
-        alert.informativeText = """
-            Google requires each app to be registered, so this is a one-time step.
-
-            1.  console.cloud.google.com  →  create (or pick) a project
-            2.  APIs & Services → Library → enable “Google Calendar API”
-            3.  APIs & Services → OAuth consent screen → External →
-                 add your own address under Test users
-            4.  Credentials → Create credentials → OAuth client ID →
-                 Application type: Desktop app
-            5.  Paste the Client ID and Client secret below
-
-            Your password is never seen by this app — you sign in on Google's own page.
-            """
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Save & Sign In")
-        alert.addButton(withTitle: "Cancel")
-
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 66))
-        let idLabel = Self.fieldLabel("Client ID", y: 42)
-        let idField = NSTextField(frame: NSRect(x: 92, y: 38, width: 368, height: 24))
-        idField.placeholderString = "1234-abcd.apps.googleusercontent.com"
-        idField.stringValue = GoogleAuth.shared.clientID ?? ""
-
-        let secretLabel = Self.fieldLabel("Client secret", y: 8)
-        let secretField = NSTextField(frame: NSRect(x: 92, y: 4, width: 368, height: 24))
-        secretField.placeholderString = "GOCSPX-… (from the same credential)"
-        secretField.stringValue = GoogleAuth.shared.clientSecret ?? ""
-
-        container.addSubview(idLabel)
-        container.addSubview(idField)
-        container.addSubview(secretLabel)
-        container.addSubview(secretField)
-        alert.accessoryView = container
-        alert.window.initialFirstResponder = idField
-
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-
-        let id = idField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !id.isEmpty else {
-            GoogleAuth.shared.forgetClient()
-            reloadAfterSourceChange()
-            return
-        }
-        GoogleAuth.shared.setClient(id: id, secret: secretField.stringValue)
-        signInToGoogle()
-    }
-
+    /// Right-aligned caption for a form field in a dialog.
     private static func fieldLabel(_ text: String, y: CGFloat, width: CGFloat = 88) -> NSTextField {
         let label = NSTextField(labelWithString: text)
         label.frame = NSRect(x: 0, y: y, width: width, height: 16)
@@ -1104,6 +1165,125 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         label.font = NSFont.systemFont(ofSize: 11)
         label.textColor = .secondaryLabelColor
         return label
+    }
+
+    // MARK: Keyword colors
+
+    @objc private func importKeywordCSV() {
+        NSApp.activate(ignoringOtherApps: true)
+
+        let panel = NSOpenPanel()
+        panel.title = "Import Keyword Colors"
+        panel.message = "Choose a CSV with category, color and keyword columns. "
+            + "Colour can be a hex (#28CD41) or a name (green)."
+        panel.allowedContentTypes = [.commaSeparatedText, .plainText, .text]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        // A menu bar app isn't the active app when the panel opens, so it comes
+        // up behind, unfocused, and wherever it was last left. Position it
+        // explicitly and hand it the keyboard.
+        panel.level = .modalPanel
+        if let screen = NSScreen.main {
+            let size = NSSize(width: 720, height: 460)
+            let frame = screen.visibleFrame
+            panel.setFrame(NSRect(x: frame.midX - size.width / 2,
+                                  y: frame.midY - size.height / 2,
+                                  width: size.width, height: size.height),
+                           display: false)
+        }
+        panel.center()
+        panel.orderFrontRegardless()
+        panel.makeKeyAndOrderFront(nil)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let text: String
+        do {
+            text = try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            // Excel often writes Latin-1 rather than UTF-8.
+            guard let fallback = try? String(contentsOf: url, encoding: .isoLatin1) else {
+                showError("Couldn't read that file", error.localizedDescription)
+                return
+            }
+            text = fallback
+        }
+
+        let result = KeywordRules.parse(csv: text)
+        if let problem = result.problem {
+            showError("Couldn't import \(url.lastPathComponent)", problem)
+            return
+        }
+        KeywordRules.save(result.rules, from: url.lastPathComponent)
+
+        // Tell them what actually landed, including anything ignored.
+        var notes: [String] = []
+        let categories = KeywordRules.categories.count
+        notes.append("\(result.rules.count) keywords across \(categories) "
+                     + "categor\(categories == 1 ? "y" : "ies").")
+        if result.skippedRows > 0 {
+            notes.append("\(result.skippedRows) row\(result.skippedRows == 1 ? "" : "s") skipped "
+                         + "(missing keyword or unreadable colour).")
+        }
+        if !result.duplicates.isEmpty {
+            notes.append("Repeated keywords kept once: \(result.duplicates.prefix(4).joined(separator: ", "))"
+                         + (result.duplicates.count > 4 ? "…" : "") + ".")
+        }
+        if !result.unknownColours.isEmpty {
+            notes.append("\nNot recognised as a colour — use a hex like #28CD41, or a name such as "
+                         + "blue, teal, amber:\n• "
+                         + result.unknownColours.prefix(5).joined(separator: "\n• "))
+        }
+        let longest = result.rules.first.map { "\($0.keyword)" } ?? "—"
+        notes.append("\nLongest phrase wins a tie, so “\(longest)” is checked before any single word.")
+
+        showError("Imported \(url.lastPathComponent)", notes.joined(separator: " "))
+        reloadAfterSourceChange()
+    }
+
+    @objc private func clearKeywordCSV() {
+        KeywordRules.clear()
+        reloadAfterSourceChange()
+    }
+
+    /// Apply the built-in sample rules straight away.
+    @objc private func loadSampleKeywords() {
+        let result = KeywordRules.parse(csv: KeywordRules.sampleCSV)
+        guard result.problem == nil, !result.rules.isEmpty else {
+            showError("Couldn't load the sample", result.problem ?? "No rules in the sample.")
+            return
+        }
+        KeywordRules.save(result.rules, from: "the built-in sample")
+        reloadAfterSourceChange()
+
+        let categories = KeywordRules.categories.count
+        showError("Sample colors applied",
+                  "\(result.rules.count) keywords across \(categories) categories. "
+                  + "Use “Save Sample CSV…” if you'd like to edit them and import your own.")
+    }
+
+    /// Write the sample out so it can be edited in a spreadsheet and re-imported.
+    @objc private func saveSampleKeywordCSV() {
+        NSApp.activate(ignoringOtherApps: true)
+
+        let panel = NSSavePanel()
+        panel.title = "Save Sample Keyword Colors"
+        panel.message = "Edit this in any spreadsheet, then bring it back with Import CSV…"
+        panel.nameFieldStringValue = "keyword-colors.csv"
+        panel.allowedContentTypes = [.commaSeparatedText]
+        // Same treatment as the open panel: a menu bar app's panels arrive
+        // behind and unfocused otherwise.
+        panel.level = .modalPanel
+        panel.center()
+        panel.orderFrontRegardless()
+        panel.makeKeyAndOrderFront(nil)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            // Trailing newline, so appending a row in a text editor behaves.
+            try (KeywordRules.sampleCSV + "\n").write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            showError("Couldn't save the sample", error.localizedDescription)
+        }
     }
 
     // MARK: Saved calendars
@@ -1131,8 +1311,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                   •  a calendar address, e.g. you@gmail.com
                   •  a local file, e.g. file:///path/to/test.ics
 
-                Public feeds carry no colour information. Sign in with Google instead
-                if you want each block in its Google Calendar colour.
+                Feeds carry no colour information — use Keyword Colors to colour
+                blocks by what they're called.
                 """
             alert.alertStyle = .informational
             alert.addButton(withTitle: "Save")
@@ -1241,10 +1421,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Show a fetch failure on the strip, and drop stale events so the menu
     /// doesn't keep listing a schedule we can no longer verify.
-    private func showFailure(_ error: Error) {
+    private func showFailure(_ message: String) {
         timeline.events = []
-        todaysEvents = []
-        timeline.errorMessage = error.localizedDescription
+        menuEvents = []
+        timeline.errorMessage = message
     }
 
     private func showError(_ title: String, _ detail: String) {
@@ -1259,7 +1439,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Source changed: clear what we have and reload from scratch.
     private func reloadAfterSourceChange() {
-        todaysEvents = []
+        menuEvents = []
         timeline.events = []
         timeline.errorMessage = nil
         lastFetch = nil
