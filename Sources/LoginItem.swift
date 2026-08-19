@@ -22,9 +22,8 @@ enum LoginItem {
     /// `~/Library/LaunchAgents` unless you switch it on.
     static let defaultEnabled = false
 
-    /// The wait offered first once you do switch it on. At login the Mac is
-    /// starting everything at once, and a calendar strip is not what you need in
-    /// the first few seconds of that.
+    /// What `delay` reads before a wait has ever been chosen. Nothing in the
+    /// menu is marked with it — the wait is the user's to pick.
     static let defaultDelay = 20
 
     static var isEnabled: Bool {

@@ -246,7 +246,7 @@ The [`examples/`](examples/) folder has importable `.ics` files built on the sam
 
 ## Run at Startup
 
-**Off until you ask for it** — putting something into your login sequence is your call, so nothing is written to `~/Library/LaunchAgents` until you switch it on. When you do, the wait offered first is **20 seconds**: at login the Mac is starting everything at once, and the strip isn't what you need in the first few seconds of that. It sits in its own block below Refresh Now, ticked whenever it will launch at login — with or without a wait. The item shows the current setting, so *Run at Startup: After 20 s* tells you where you stand without opening the submenu:
+**Off until you ask for it** — putting something into your login sequence is your call, so nothing is written to `~/Library/LaunchAgents` until you switch it on. A wait is worth choosing: at login the Mac is starting everything at once, and the strip isn't what you need in the first few seconds of that. It sits in its own block below Refresh Now, ticked whenever it will launch at login — with or without a wait. The item shows the current setting, so *Run at Startup: After 20 s* tells you where you stand without opening the submenu:
 
 ```
 Run at Startup: After 20 s ▸    Off
@@ -255,7 +255,7 @@ Run at Startup: After 20 s ▸    Off
                                   5 s
                                   10 s
                                   15 s
-                                  20 s  (default wait)
+                                  20 s
                                   30 s
                                   60 s
 ```
@@ -294,7 +294,7 @@ Most of it is in the menu — click the strip:
 | **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 360 pt, about 47 characters) |
 | **Restore Defaults** | Back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Greyed out when nothing has been changed |
 | **Refresh Now (⌘R)** | Re-reads the feed immediately instead of waiting for the five-minute timer |
-| **Run at Startup ▸** | Off, on, or on after a wait of 5–60 s (**off** by default; 20 s is the wait offered first) |
+| **Run at Startup ▸** | Off, on, or on after a wait of 5–60 s (**off** by default) |
 
 The two are independent: **range** decides how much time you see, **width** decides how much space it gets. Together they set how big a block looks — at the default ±1 hour across 250 pt, a 15-minute block is about 31 pt wide; narrow the range to ±15 minutes at the same width and it grows to 125 pt. Each width option's tooltip does that arithmetic for you, and the note at the foot of the menu shows the current result.
 
