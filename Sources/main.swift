@@ -354,6 +354,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         installEditMenu()
         Config.adoptLegacyCalendarIfNeeded()
         KeywordRules.seedSampleRulesIfFirstRun()
+        LoginItem.syncOnLaunch()
 
         _ = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
@@ -623,12 +624,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
-        if let lastFetch {
-            df.dateFormat = "h:mm:ss a"
-            addInfo("Updated \(df.string(from: lastFetch))", to: menu)
-        }
-        add("Refresh Now", #selector(refreshNow), to: menu, key: "r")
-        menu.addItem(.separator())
 
         // --- Appearance ---
         let range = NSMenuItem(title: "Time Range", action: nil, keyEquivalent: "")
@@ -685,7 +680,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
+
+        // --- Reading the feed ---
+        // Kept next to the calendar it refreshes, rather than up with the day.
+        if let lastFetch {
+            df.dateFormat = "h:mm:ss a"
+            addInfo("Updated \(df.string(from: lastFetch))", to: menu)
+        }
+        add("Refresh Now", #selector(refreshNow), to: menu, key: "r")
+
+        let startup = NSMenuItem(title: LoginItem.menuTitle, action: nil, keyEquivalent: "")
+        startup.submenu = startupMenu()
+        startup.toolTip = LoginItem.isInApplications
+            ? "Launch when you log in, as a LaunchAgent"
+            : "Points at the app where it is now — moving the folder will break it"
+        menu.addItem(startup)
+
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    }
+
+    /// Off, on, or on after a wait. The wait keeps the app out of the crowd of
+    /// things all starting at once when you log in.
+    private func startupMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        let off = NSMenuItem(title: "Off", action: #selector(chooseStartup(_:)), keyEquivalent: "")
+        off.target = self
+        off.representedObject = -1
+        off.state = LoginItem.isEnabled ? .off : .on
+        sub.addItem(off)
+
+        let on = NSMenuItem(title: "On", action: #selector(chooseStartup(_:)), keyEquivalent: "")
+        on.target = self
+        on.representedObject = 0
+        on.state = (LoginItem.isEnabled && LoginItem.delay == 0) ? .on : .off
+        on.toolTip = "Launch as soon as you log in"
+        sub.addItem(on)
+
+        let header = NSMenuItem(title: "Delay for:", action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        sub.addItem(header)
+
+        for seconds in LoginItem.delayChoices {
+            var title = "\(seconds) s"
+            if seconds == LoginItem.defaultDelay { title += "  (default)" }
+            let item = NSMenuItem(title: title, action: #selector(chooseStartup(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = seconds
+            item.state = (LoginItem.isEnabled && LoginItem.delay == seconds) ? .on : .off
+            sub.addItem(item)
+        }
+        return sub
     }
 
     /// How much time is visible, as ± either side of now.
@@ -1070,6 +1117,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Actions
 
     @objc private func refreshNow() { fetch() }
+
+    /// -1 is off, 0 is launch immediately, anything else is a wait in seconds.
+    @objc private func chooseStartup(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? Int else { return }
+        let enabled = value >= 0
+        LoginItem.apply(enabled: enabled, delay: max(value, 0))
+        if enabled && !LoginItem.isInApplications { warnAboutAppLocation() }
+    }
+
+    /// Said once, when it's turned on from somewhere the app is likely to move
+    /// from — the Downloads folder, or the build directory it was made in.
+    private func warnAboutAppLocation() {
+        menu.cancelTracking()
+        let alert = NSAlert()
+        alert.messageText = "Launching from its current folder"
+        alert.informativeText = """
+        The login item points at the app where it is now:
+
+        \(Bundle.main.bundleURL.path)
+
+        Moving, renaming or deleting that folder will stop it launching. Copy the app to
+        /Applications and choose Run at startup again to point it there.
+        """
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
+    }
 
     @objc private func chooseTimeRange(_ sender: NSMenuItem) {
         guard let minutes = sender.representedObject as? Double else { return }

@@ -40,6 +40,11 @@ First public release.
 - Adjustable **Time Range** (±5 minutes to ±2 hours), **Timeline Width** (100–450 pt in 50 pt
   steps), per-part **Labels** toggles and **Label Length**, all persisted, with **Restore Defaults**
   greyed out until something actually changes.
+- **Run at startup** — off, on, or on after a wait of 5 to 60 seconds; on with a 20-second wait by
+  default. It installs a LaunchAgent rather than a Login Item, so the delay lives in the job itself:
+  launchd runs a short-lived shell that sleeps and then replaces itself with the app, leaving nothing
+  extra running. It warns once if the app is somewhere it's likely to move from, and repairs the path
+  at launch if it has.
 - `build.sh` to produce an `LSUIElement` app bundle from source with `swiftc` — no Xcode project,
   no SwiftPM, no dependencies.
 

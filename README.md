@@ -244,6 +244,44 @@ Because it starts and ends on sleep, it also exercises the dropdown's [sleep-to-
 
 The [`examples/`](examples/) folder has importable `.ics` files built on the same grid. They use floating local times, so they land on correct quarter-hours in any time zone. See [examples/README.md](examples/README.md).
 
+## Run at startup
+
+On by default, **20 seconds after you log in**. At login the Mac is starting everything at once, and the strip isn't what you need in the first few seconds of that — but it is something you want there without having to remember to open it. The menu item shows the current setting, so *Run at startup: after 20 s* tells you where you stand without opening the submenu:
+
+```
+Run at startup: after 20 s ▸    Off
+                                On
+                                Delay for:
+                                  5 s
+                                  10 s
+                                  15 s
+                                  20 s  (default)
+                                  30 s
+                                  60 s
+```
+
+It's a **LaunchAgent**, not a Login Item, which is what makes the wait possible — the delay lives in the job itself. launchd runs a short-lived `/bin/sh` that sleeps and then *replaces itself* with the app, so once the wait is over nothing extra is left running:
+
+```xml
+<key>ProgramArguments</key>
+<array>
+  <string>/bin/sh</string>
+  <string>-c</string>
+  <string>sleep 20; exec '/Applications/RollingCalendar.app/Contents/MacOS/RollingCalendar'</string>
+</array>
+<key>RunAtLoad</key><true/>
+<key>ProcessType</key><string>Interactive</string>
+```
+
+`ProcessType` is `Interactive` rather than `Background` deliberately: a background job sits in a low-priority band macOS is free to defer, which quietly turns "no delay" into "some unpredictable delay".
+
+The agent lives at `~/Library/LaunchAgents/io.github.macos-menubar-rollingcalendar.plist` and points at the app **where it was when you switched it on** — so if the app isn't in `/Applications`, you're told once, since moving that folder afterwards would break it. The app re-checks at every launch and repairs the path if it has moved. Removing it is the menu's *Off*, or:
+
+```bash
+launchctl bootout gui/$UID/io.github.macos-menubar-rollingcalendar
+rm ~/Library/LaunchAgents/io.github.macos-menubar-rollingcalendar.plist
+```
+
 ## Configuration
 
 Most of it is in the menu — click the strip:
@@ -255,6 +293,8 @@ Most of it is in the menu — click the strip:
 | **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
 | **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 360 pt, about 47 characters) |
 | **Restore Defaults** | Back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Greyed out when nothing has been changed |
+| **Refresh Now (⌘R)** | Re-reads the feed immediately instead of waiting for the five-minute timer |
+| **Run at startup ▸** | Off, on, or on after a wait of 5–60 s (default: **on, after 20 s**) |
 
 The two are independent: **range** decides how much time you see, **width** decides how much space it gets. Together they set how big a block looks — at the default ±1 hour across 250 pt, a 15-minute block is about 31 pt wide; narrow the range to ±15 minutes at the same width and it grows to 125 pt. Each width option's tooltip does that arithmetic for you, and the note at the foot of the menu shows the current result.
 

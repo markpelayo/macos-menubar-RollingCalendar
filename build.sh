@@ -22,6 +22,7 @@ swiftc -O \
   Sources/CalendarRowView.swift \
   Sources/KeywordRules.swift \
   Sources/DemoData.swift \
+  Sources/LoginItem.swift \
   -o "${BUNDLE}/Contents/MacOS/${APP_NAME}"
 
 echo "==> Writing Info.plist"
