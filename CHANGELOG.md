@@ -4,20 +4,55 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-08-21
+
+### Added
+
+- **Several lead times at once.** *Alert Me Before* is a set rather than a choice: 1, 5 and 10
+  minutes, plus any custom value, as many as you like. Each block is announced once per lead time —
+  ten minutes to start wrapping up, one minute to actually move — all sharing the same sound or
+  voice, with only the spoken number changing.
+- **Premium Voices** submenu listing Apple's neural voices for American, British and Australian
+  English whether or not they're installed: the ones you have are selectable, the rest show their
+  download size and open Manage Voices, since a voice nobody knows exists is a voice nobody
+  downloads.
+- **Custom Sound…** copies an AIFF, WAV, MP3 or M4A into `~/Library/Sounds`, so the alert sound isn't
+  limited to the fourteen macOS ships.
+
+### Changed
+
+- **Multi-select rows no longer close the menu.** Lead times and categories are custom views that
+  handle the click themselves, so a set can be built in one visit; sibling rows re-read their state
+  and the parent rows rewrite their titles in place. Single choices — a sound, a voice — still close,
+  since each plays a sample as it's picked.
+- **One alert style, not two.** Choosing a sound switches the voice off and vice versa, enforced in
+  the settings rather than the menu, so a chime and a sentence can never compete for the same moment.
+- The whole alert configuration is shown on the parent item — *Time Block Alerts: 10m, 1m | Voice —
+  Daniel* — and each row inside carries its own value, with **Off** living in the submenu rather than
+  as a separate checkbox.
+- An alert more than 30 seconds late is marked done rather than announced. Launching mid-window or
+  waking from sleep no longer produces a burst of catch-up alerts claiming the wrong number of
+  minutes.
+- Siri and *System Voice* are no longer offered: macOS reserves the Siri voices, and they can't be
+  named by an app or inherited from the System Voice setting — the synthesiser substitutes a default
+  instead.
+
+### Fixed
+
+- **Opening the menu had become slow.** Submenus are built eagerly by AppKit, and the alert rows were
+  calling `AVSpeechSynthesisVoice.speechVoices()` around twenty times per click — each call
+  enumerating every installed voice — plus several hundred filesystem checks for the sound list. Both
+  lists are now built once and cached, and invalidated only when a voice or sound could have changed.
+- A voice whose name already carries its tier no longer reads *Ava (Premium) (Premium, US)*.
+
 ## [1.1.0] — 2026-08-21
 
 ### Added
 
 - **Time Block Alerts** — a system sound, the block name spoken aloud, or both, a chosen time before
   a block starts. Off by default. Lead times are a set rather than a choice — 1, 5 and 10 minutes plus
-  any custom value, as many at once as you like, each announced once per block. Lead-time and category
-  rows stay open when clicked, so a set can be built in one visit rather than one trip per item. The
-  sound
-  is any of the fourteen macOS ships, or one of your own copied into `~/Library/Sounds` by
-  **Custom Sound…**; speech is `AVSpeechSynthesizer` with Daniel, Samantha and Zarvox always
-  available, plus a **Premium Voices** submenu listing Apple's neural voices for American, British
-  and Australian English — installed ones selectable, the rest showing their download size and
-  opening Manage Voices, so you can tell they exist before going looking. Sound and speech are exclusive — choosing one silences the other — and the whole
+  a custom value; the sound is any of the fourteen macOS ships; speech is `AVSpeechSynthesizer` with
+  Daniel, Samantha and Zarvox, plus any Enhanced or Premium voice you've downloaded. Sound and speech are exclusive — choosing one silences the other — and the whole
   configuration is shown on the parent menu item, e.g. *Time Block Alerts: 5m | Voice — Daniel*.
   Siri isn't offered: macOS reserves those voices, and an app can neither name one nor inherit it from
   the System Voice setting — the synthesiser substitutes a default instead. Alerts can be limited to chosen categories, fire once
@@ -93,5 +128,6 @@ First public release.
 - Recurring events are handled for a common subset of RFC 5545 — `RRULE` with `FREQ`, `INTERVAL`,
   `COUNT`, `UNTIL`, `BYDAY`, plus `EXDATE` and `RECURRENCE-ID` overrides.
 
+[1.2.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.2.0
 [1.1.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.1.0
 [1.0.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.0.0
