@@ -3,11 +3,11 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform: macOS 13+](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey)](#quick-start)
 [![Status: in development](https://img.shields.io/badge/status-in%20development-orange)](#known-limitations)
-[![Release: v1.0.0](https://img.shields.io/badge/release-v1.0.0-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
+[![Release: v1.1.0](https://img.shields.io/badge/release-v1.1.0-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
 
 A macOS menu bar app that draws today's calendar as a horizontal timeline scrolling past a fixed "now" marker. Instead of asking *what time is my next thing*, you glance up and see where you are.
 
-> **Status: in development.** Working and usable — [v1.0.0](CHANGELOG.md) is the first public release — but rough edges remain, see [Known limitations](#known-limitations). Behaviour, defaults and stored preferences may change without migration.
+> **Status: in development.** Working and usable — [v1.1.0](CHANGELOG.md) is the current release — but rough edges remain, see [Known limitations](#known-limitations). Behaviour, defaults and stored preferences may change without migration.
 
 ## The UI
 
@@ -427,7 +427,7 @@ carries source only — no app bundle, for the notarisation reason above — so 
 version means checking out its tag and running `./build.sh`:
 
 ```bash
-git checkout v1.0.0
+git checkout v1.1.0
 ./build.sh
 ```
 

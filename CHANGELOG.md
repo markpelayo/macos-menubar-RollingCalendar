@@ -4,6 +4,31 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-08-21
+
+### Added
+
+- **Time Block Alerts** — a system sound, the block name spoken aloud, or both, a chosen time before
+  a block starts. Off by default. The lead time is 1 minute, 5 minutes or a custom value; the sound
+  is one of ten macOS already ships, so nothing is bundled; speech is `AVSpeechSynthesizer` with
+  American and British voices in both genders, each resolved by name and then by language and gender
+  so a missing voice still keeps the accent. Alerts can be limited to chosen categories, fire once
+  per block, and skip all-day events. A Notification Center banner is posted too where macOS allows
+  it, as a bonus rather than the mechanism.
+- **Run at Startup** — off, on, or on after a wait of 5 to 60 seconds. Off by default, since putting
+  something into a login sequence is the user's call, and the wait is theirs to pick. It installs a
+  LaunchAgent rather than a Login Item, so the delay lives in the job:
+  launchd runs a short-lived shell that sleeps and then replaces itself with the app, leaving nothing
+  extra running. It warns once if the app is somewhere it's likely to move from, and repairs the path
+  at launch if it has.
+
+### Changed
+
+- The dropdown's **Updated / Refresh Now** moved down beside the calendar it refreshes, rather than
+  sitting under the day's blocks.
+- The menu's own documentation caught up: the hand-drawn SVG is gone, replaced by annotated
+  screenshots of the real menu.
+
 ## [1.0.0] — 2026-08-19
 
 First public release.
@@ -40,19 +65,6 @@ First public release.
 - Adjustable **Time Range** (±5 minutes to ±2 hours), **Timeline Width** (100–450 pt in 50 pt
   steps), per-part **Labels** toggles and **Label Length**, all persisted, with **Restore Defaults**
   greyed out until something actually changes.
-- **Time Block Alerts** — a system sound, the block name spoken aloud, or both, a chosen time before
-  a block starts. Off by default. The lead time is 1 minute, 5 minutes or a custom value; the sound
-  is one of ten macOS already ships, so nothing is bundled; speech is `AVSpeechSynthesizer` with
-  American and British voices in both genders, each resolved by name and then by language and gender
-  so a missing voice still keeps the accent. Alerts can be limited to chosen categories, fire once
-  per block, and skip all-day events. A Notification Center banner is posted too where macOS allows
-  it, as a bonus rather than the mechanism.
-- **Run at Startup** — off, on, or on after a wait of 5 to 60 seconds. Off by default, since putting
-  something into a login sequence is the user's call, and the wait is theirs to pick. It installs a
-  LaunchAgent rather than a Login Item, so the delay lives in the job:
-  launchd runs a short-lived shell that sleeps and then replaces itself with the app, leaving nothing
-  extra running. It warns once if the app is somewhere it's likely to move from, and repairs the path
-  at launch if it has.
 - `build.sh` to produce an `LSUIElement` app bundle from source with `swiftc` — no Xcode project,
   no SwiftPM, no dependencies.
 
@@ -73,4 +85,5 @@ First public release.
 - Recurring events are handled for a common subset of RFC 5545 — `RRULE` with `FREQ`, `INTERVAL`,
   `COUNT`, `UNTIL`, `BYDAY`, plus `EXDATE` and `RECURRENCE-ID` overrides.
 
+[1.1.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.1.0
 [1.0.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.0.0
