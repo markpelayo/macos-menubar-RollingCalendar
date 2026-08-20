@@ -342,8 +342,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
 
         redrawTimer = Timer.scheduledTimer(withTimeInterval: Config.redrawInterval, repeats: true) { [weak self] _ in
-            self?.resize()
-            self?.timeline.needsDisplay = true
+            guard let self else { return }
+            self.resize()
+            self.timeline.needsDisplay = true
+            // Same tick as the redraw: the clock is already being read, and a
+            // second's resolution is plenty for a warning measured in minutes.
+            Alerts.check(self.menuEvents, now: Clock.now)
         }
         fetchTimer = Timer.scheduledTimer(withTimeInterval: Config.refetchInterval, repeats: true) { [weak self] _ in
             self?.fetch()
@@ -679,6 +683,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(saved)
         }
 
+        let alerts = NSMenuItem(title: "Time Block Alerts", action: nil, keyEquivalent: "")
+        alerts.submenu = alertsMenu()
+        // Ticked only when an alert could actually happen: a lead time, and at
+        // least one of sound or speech.
+        alerts.state = Alerts.isEnabled ? .on : .off
+        alerts.toolTip = Alerts.isEnabled
+            ? "\(Alerts.leadPhrase()) before a block starts"
+            : "Off — choose when to be told, then how"
+        menu.addItem(alerts)
+
         menu.addItem(.separator())
 
         // --- Reading the feed ---
@@ -704,6 +718,162 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    }
+
+    /// A heads-up before a block starts. Deliberately staged: the lead time
+    /// comes first, then how it announces itself, and only then which categories
+    /// it applies to — each step greyed out until the one above it is answered.
+    private func alertsMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        // --- 1. when ---
+        let when = NSMenuItem(title: "Alert Me", action: nil, keyEquivalent: "")
+        when.submenu = alertLeadMenu()
+        sub.addItem(when)
+        addNote(Alerts.lead > 0
+                    ? "\(Alerts.leadPhrase()) before each block"
+                    : "Off — nothing will sound", to: sub)
+
+        // --- 2. how ---
+        sub.addItem(.separator())
+        let sound = NSMenuItem(title: "Play a Sound", action: #selector(toggleAlertSound),
+                               keyEquivalent: "")
+        sound.target = self
+        sound.state = Alerts.playsSound ? .on : .off
+        sound.isEnabled = Alerts.lead > 0
+        sub.addItem(sound)
+
+        let chosen = NSMenuItem(title: "Alert Sound: \(Alerts.soundName)",
+                                action: nil, keyEquivalent: "")
+        chosen.submenu = alertSoundMenu()
+        chosen.isEnabled = Alerts.lead > 0 && Alerts.playsSound
+        sub.addItem(chosen)
+
+        let speech = NSMenuItem(title: "Speak the Block Name", action: #selector(toggleAlertSpeech),
+                                keyEquivalent: "")
+        speech.target = self
+        speech.state = Alerts.speaks ? .on : .off
+        speech.isEnabled = Alerts.lead > 0
+        speech.toolTip = Alerts.lead > 0
+            ? "Says “\(Alerts.leadPhrase()) before Focus Work”"
+            : "Choose a lead time first"
+        sub.addItem(speech)
+
+        let voice = NSMenuItem(title: "Voice: \(Alerts.voiceTitle)", action: nil, keyEquivalent: "")
+        voice.submenu = alertVoiceMenu()
+        voice.isEnabled = Alerts.lead > 0 && Alerts.speaks
+        sub.addItem(voice)
+
+        // --- 3. which blocks ---
+        sub.addItem(.separator())
+        let categories = NSMenuItem(title: Alerts.isEveryCategory
+                                        ? "Categories: all"
+                                        : "Categories: \(Alerts.selectedCategories.count) selected",
+                                    action: nil, keyEquivalent: "")
+        categories.submenu = alertCategoryMenu()
+        categories.isEnabled = Alerts.isEnabled
+        categories.toolTip = Alerts.isEnabled
+            ? "Only blocks in these categories are announced"
+            : "Choose a lead time and a sound or voice first"
+        sub.addItem(categories)
+
+        sub.addItem(.separator())
+        let test = NSMenuItem(title: "Test Alert Now", action: #selector(testAlert), keyEquivalent: "")
+        test.target = self
+        test.isEnabled = Alerts.isEnabled
+        sub.addItem(test)
+        return sub
+    }
+
+    /// How long before a block starts.
+    private func alertLeadMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        let off = NSMenuItem(title: "Off", action: #selector(chooseAlertLead(_:)), keyEquivalent: "")
+        off.target = self
+        off.representedObject = 0
+        off.state = Alerts.lead == 0 ? .on : .off
+        sub.addItem(off)
+
+        for preset in Alerts.leadPresets {
+            let item = NSMenuItem(title: preset.title, action: #selector(chooseAlertLead(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = preset.seconds
+            item.state = Alerts.lead == preset.seconds ? .on : .off
+            sub.addItem(item)
+        }
+
+        let isCustom = Alerts.lead > 0 && !Alerts.leadPresets.contains { $0.seconds == Alerts.lead }
+        let custom = NSMenuItem(
+            title: isCustom ? "Custom: \(Alerts.leadPhrase()) before…" : "Custom…",
+            action: #selector(pickCustomAlertLead), keyEquivalent: "")
+        custom.target = self
+        custom.state = isCustom ? .on : .off
+        sub.addItem(custom)
+        return sub
+    }
+
+    /// The ten system sounds. Picking one plays it, so you can hear it before
+    /// committing to it.
+    private func alertSoundMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        for name in Alerts.sounds {
+            let item = NSMenuItem(title: name, action: #selector(chooseAlertSound(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = name
+            item.state = Alerts.soundName == name ? .on : .off
+            sub.addItem(item)
+        }
+        addNote("Choosing one plays it", to: sub)
+        return sub
+    }
+
+    /// Two accents, two genders.
+    private func alertVoiceMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        for voice in Alerts.voices {
+            let item = NSMenuItem(title: voice.title, action: #selector(chooseAlertVoice(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = voice.key
+            item.state = Alerts.voiceKey == voice.key ? .on : .off
+            sub.addItem(item)
+        }
+        addNote("Choosing one speaks a sample", to: sub)
+        return sub
+    }
+
+    /// Which categories get announced. "All" is stored as an empty selection, so
+    /// adding a category to your CSV doesn't quietly leave it out.
+    private func alertCategoryMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        let all = NSMenuItem(title: "All Categories", action: #selector(chooseAllAlertCategories),
+                             keyEquivalent: "")
+        all.target = self
+        all.state = Alerts.isEveryCategory ? .on : .off
+        sub.addItem(all)
+        sub.addItem(.separator())
+
+        var names = KeywordRules.categories.map { $0.name }
+        names.append(Alerts.uncategorized)
+        for name in names {
+            let item = NSMenuItem(title: name, action: #selector(toggleAlertCategory(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = name
+            item.state = (Alerts.isEveryCategory || Alerts.selectedCategories.contains(name))
+                ? .on : .off
+            sub.addItem(item)
+        }
+        return sub
     }
 
     /// Off, on, or on after a wait. The wait keeps the app out of the crowd of
@@ -981,6 +1151,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item)
     }
 
+    /// A dim, unclickable line of explanation at the foot of a submenu.
+    private func addNote(_ text: String, to menu: NSMenu) {
+        menu.addItem(.separator())
+        let item = NSMenuItem(title: text, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        menu.addItem(item)
+    }
+
     @discardableResult
     private func add(_ title: String, _ action: Selector, to menu: NSMenu, key: String = "") -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
@@ -1122,6 +1300,75 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Actions
 
     @objc private func refreshNow() { fetch() }
+
+    @objc private func chooseAlertLead(_ sender: NSMenuItem) {
+        guard let seconds = sender.representedObject as? Int else { return }
+        Alerts.setLead(seconds)
+        if seconds > 0 { Alerts.requestNotificationPermissionIfNeeded() }
+    }
+
+    /// Minutes, because that's how you think about a lead time — decimals allowed
+    /// for the half-minute case.
+    @objc private func pickCustomAlertLead() {
+        menu.cancelTracking()
+        NSApp.activate(ignoringOtherApps: true)
+
+        let alert = NSAlert()
+        alert.messageText = "Custom Lead Time"
+        alert.informativeText = "How long before a block starts should the alert sound? "
+            + "Minutes, from 0.25 to 120."
+        alert.addButton(withTitle: "Set")
+        alert.addButton(withTitle: "Cancel")
+
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 120, height: 24))
+        field.stringValue = Alerts.lead > 0
+            ? String(format: "%g", Double(Alerts.lead) / 60) : "3"
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let text = field.stringValue.trimmingCharacters(in: .whitespaces)
+        guard let minutes = Double(text), minutes > 0 else { return }
+        Alerts.setLead(Int((min(max(minutes, 0.25), 120) * 60).rounded()))
+        Alerts.requestNotificationPermissionIfNeeded()
+    }
+
+    @objc private func toggleAlertSound() {
+        Alerts.setPlaysSound(!Alerts.playsSound)
+        if Alerts.playsSound { Alerts.play(Alerts.soundName) }
+        Alerts.requestNotificationPermissionIfNeeded()
+    }
+
+    @objc private func toggleAlertSpeech() {
+        Alerts.setSpeaks(!Alerts.speaks)
+        if Alerts.speaks { Alerts.test() }
+        Alerts.requestNotificationPermissionIfNeeded()
+    }
+
+    @objc private func chooseAlertSound(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        Alerts.setSoundName(name)
+        Alerts.play(name)
+    }
+
+    @objc private func chooseAlertVoice(_ sender: NSMenuItem) {
+        guard let key = sender.representedObject as? String else { return }
+        Alerts.setVoiceKey(key)
+        Alerts.test()
+    }
+
+    @objc private func chooseAllAlertCategories() {
+        Alerts.selectAllCategories()
+        Alerts.forgetAnnounced()
+    }
+
+    @objc private func toggleAlertCategory(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        Alerts.toggleCategory(name)
+        Alerts.forgetAnnounced()
+    }
+
+    @objc private func testAlert() { Alerts.test() }
 
     /// -1 is off, 0 is launch immediately, anything else is a wait in seconds.
     @objc private func chooseStartup(_ sender: NSMenuItem) {

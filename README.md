@@ -244,6 +244,45 @@ Because it starts and ends on sleep, it also exercises the dropdown's [sleep-to-
 
 The [`examples/`](examples/) folder has importable `.ics` files built on the same grid. They use floating local times, so they land on correct quarter-hours in any time zone. See [examples/README.md](examples/README.md).
 
+## Time Block Alerts
+
+A heads-up shortly before a block starts — a system sound, the name spoken aloud, or both. Off until you set it up, and the menu is deliberately staged: **when**, then **how**, then **which blocks**. Each step stays greyed out until the one above it is answered, and the parent item is ticked only once an alert could actually happen.
+
+```
+✓ Time Block Alerts ▸   Alert Me ▸                      Off · 1 minute before · 5 minutes before · Custom…
+                        (5 minutes before each block)
+                        ──────────────────────────────
+                      ✓ Play a Sound
+                        Alert Sound: Ping ▸             Tink · Pop · Bottle · Blow · Purr
+                                                        Ping · Glass · Sosumi · Submarine · Hero
+                      ✓ Speak the Block Name
+                        Voice: American · female ▸      American · female / male
+                                                        British · female / male
+                        ──────────────────────────────
+                        Categories: all ▸               All Categories, then one row per category
+                        ──────────────────────────────
+                        Test Alert Now
+```
+
+**The sounds are the ten macOS already ships** in `/System/Library/Sounds`, ordered quietest first, so nothing is bundled and nothing is downloaded. Choosing one plays it. A sound dropped into `~/Library/Sounds` is picked up by the same API if you'd rather edit the list in `Alerts.swift`.
+
+**Speech** is `AVSpeechSynthesizer` — no network, no permission prompt. It says *"5 minutes before Focus Work"*, taking the lead time from your own setting so the two can't disagree, and reading only the part of the name before the first `|`, since a bar reads aloud as an awkward pause. Two blocks starting together are announced in one sentence rather than talking over each other. Four voices are offered, each resolved by name first and then by language and gender, so a Mac missing one particular voice still speaks in the right accent:
+
+| Menu | Prefers | Falls back to |
+|---|---|---|
+| American · female | Samantha | any `en-US` female voice |
+| American · male | Alex | any `en-US` male voice |
+| British · female | Serena, then Kate | any `en-GB` female voice |
+| British · male | Daniel, then Oliver | any `en-GB` male voice |
+
+Sound comes first and speech follows just under a second later, since a chime under a sentence makes both harder to make out.
+
+**Categories** narrow it further — announce meetings but not focus blocks, say. *All Categories* is stored as an empty selection rather than a list of every name, so a category added to your CSV later is included rather than quietly left out. Blocks that matched no rule are covered by the **Uncategorized** row.
+
+A block is announced **once**: the check runs on the same one-second tick as the redraw, and each block is remembered by start time and name until the app quits. Changing the lead time or the categories forgets that, so a block skipped a moment ago can still be announced under the new settings. All-day events never trigger an alert.
+
+A Notification Center **banner** is also posted, if macOS has granted permission. It's a bonus rather than the mechanism: this app is built locally rather than notarised, so that permission may never be granted — the sound and the speech don't depend on it.
+
 ## Run at Startup
 
 **Off until you ask for it** — putting something into your login sequence is your call, so nothing is written to `~/Library/LaunchAgents` until you switch it on. A wait is worth choosing: at login the Mac is starting everything at once, and the strip isn't what you need in the first few seconds of that. It sits in its own block below Refresh Now, ticked whenever it will launch at login — with or without a wait. The item shows the current setting, so *Run at Startup: After 20 s* tells you where you stand without opening the submenu:
@@ -293,6 +332,7 @@ Most of it is in the menu — click the strip:
 | **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
 | **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 360 pt, about 47 characters) |
 | **Restore Defaults** | Back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Greyed out when nothing has been changed |
+| **Time Block Alerts ▸** | A sound and/or the block name spoken, a set time before it starts, for the categories you choose (**off** by default) |
 | **Refresh Now (⌘R)** | Re-reads the feed immediately instead of waiting for the five-minute timer |
 | **Run at Startup ▸** | Off, on, or on after a wait of 5–60 s (**off** by default) |
 

@@ -15,6 +15,8 @@ echo "==> Compiling"
 swiftc -O \
   -target "$(uname -m)-apple-macosx13.0" \
   -framework AppKit \
+  -framework AVFoundation \
+  -framework UserNotifications \
   Sources/main.swift \
   Sources/ICS.swift \
   Sources/TimelineView.swift \
@@ -23,6 +25,7 @@ swiftc -O \
   Sources/KeywordRules.swift \
   Sources/DemoData.swift \
   Sources/LoginItem.swift \
+  Sources/Alerts.swift \
   -o "${BUNDLE}/Contents/MacOS/${APP_NAME}"
 
 echo "==> Writing Info.plist"

@@ -40,6 +40,13 @@ First public release.
 - Adjustable **Time Range** (±5 minutes to ±2 hours), **Timeline Width** (100–450 pt in 50 pt
   steps), per-part **Labels** toggles and **Label Length**, all persisted, with **Restore Defaults**
   greyed out until something actually changes.
+- **Time Block Alerts** — a system sound, the block name spoken aloud, or both, a chosen time before
+  a block starts. Off by default. The lead time is 1 minute, 5 minutes or a custom value; the sound
+  is one of ten macOS already ships, so nothing is bundled; speech is `AVSpeechSynthesizer` with
+  American and British voices in both genders, each resolved by name and then by language and gender
+  so a missing voice still keeps the accent. Alerts can be limited to chosen categories, fire once
+  per block, and skip all-day events. A Notification Center banner is posted too where macOS allows
+  it, as a bonus rather than the mechanism.
 - **Run at Startup** — off, on, or on after a wait of 5 to 60 seconds. Off by default, since putting
   something into a login sequence is the user's call, and the wait is theirs to pick. It installs a
   LaunchAgent rather than a Login Item, so the delay lives in the job:
