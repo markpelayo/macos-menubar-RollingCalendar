@@ -880,6 +880,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             sub.addItem(item)
         }
 
+        // Siri, and the System Voice that Spoken Content is set to — neither is
+        // a download, and the second is the one route by which a Siri voice can
+        // end up being the one that speaks.
+        sub.addItem(.separator())
+        if let siri = Alerts.siriVoice {
+            let item = NSMenuItem(title: "Siri — \(siri.name)",
+                                  action: #selector(chooseAlertVoice(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = Alerts.siriVoiceKey
+            item.state = (Alerts.speaks && Alerts.voiceKey == Alerts.siriVoiceKey) ? .on : .off
+            sub.addItem(item)
+        } else {
+            let missing = NSMenuItem(title: "Siri — reserved by macOS",
+                                     action: nil, keyEquivalent: "")
+            missing.isEnabled = false
+            missing.toolTip = "Apple keeps the Siri voices for Siri and Spoken Content; apps are "
+                + "never handed them. Try System Voice below, or Ava (Premium)."
+            sub.addItem(missing)
+        }
+
+        let system = NSMenuItem(title: "System Voice — whatever Spoken Content uses",
+                                action: #selector(chooseAlertVoice(_:)), keyEquivalent: "")
+        system.target = self
+        system.representedObject = Alerts.systemVoiceKey
+        system.state = (Alerts.speaks && Alerts.voiceKey == Alerts.systemVoiceKey) ? .on : .off
+        system.toolTip = "No voice is named, so macOS speaks with the System Voice from "
+            + "Spoken Content — set that to Siri and this follows it"
+        sub.addItem(system)
+
         let natural = Alerts.naturalVoices
         sub.addItem(.separator())
         if natural.isEmpty {

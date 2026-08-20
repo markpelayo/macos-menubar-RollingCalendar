@@ -258,6 +258,8 @@ A heads-up shortly before a block starts — a system sound, the name spoken alo
                                                        British · male — Daniel
                                                        American · female — Samantha
                                                        Robot — Zarvox
+                                                       Siri — reserved by macOS
+                                                       System Voice — whatever Spoken Content uses
                                                        ── whatever you've downloaded ──
                                                        Ava (Premium, US)
                                                        Download More Voices…
@@ -281,7 +283,12 @@ Those three are *compact* voices, which is why they sound clipped. **Apple's Enh
 
 > System Settings › Accessibility › Spoken Content › System Voice › **Manage Voices** — anything marked *Enhanced* or *Premium*. *Ava*, *Zoe*, *Evan* and *Nathan* are good starting points, around 100–500 MB each.
 
-**Siri's voice isn't available**, and neither is anything called Jarvis: macOS keeps the Siri voices private, and `AVSpeechSynthesisVoice.speechVoices()` never hands them to an app.
+**Siri needs two entries, because Apple restricts it.** The Siri voices are reserved for Siri itself and for Spoken Content; `AVSpeechSynthesisVoice.speechVoices()` normally doesn't return them to an app at all, and there's no public API that asks for one by name. So:
+
+- **Siri** — shown only if this Mac actually hands one over, which some builds do once a Siri voice has been downloaded for Spoken Content. Otherwise the row reads *reserved by macOS* and can't be selected, rather than being offered and then staying silent.
+- **System Voice — whatever Spoken Content uses** — no voice is named at all, so macOS speaks with the System Voice from *System Settings › Accessibility › Spoken Content*. Set that to a Siri voice and this follows it. It's the one route by which Siri can end up being the voice that speaks, and it needs no download.
+
+Nothing called Jarvis exists as a macOS voice; *Robot — Zarvox* is the nearest thing shipped.
 
 **Categories** narrow it further — announce meetings but not focus blocks, say. *All Categories* is stored as an empty selection rather than a list of every name, so a category added to your CSV later is included rather than quietly left out. Blocks that matched no rule are covered by the **Uncategorized** row.
 

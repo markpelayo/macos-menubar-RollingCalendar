@@ -221,6 +221,27 @@ enum Alerts {
             }
     }
 
+    /// A Siri voice, *if* this Mac will hand one over.
+    ///
+    /// Apple normally keeps them out of `speechVoices()` — they're reserved for
+    /// Siri itself and for Spoken Content — so on most Macs this is nil and the
+    /// menu says so. Some builds do expose one once it's been downloaded for
+    /// Spoken Content, and where that's true there's no reason not to use it.
+    static var siriVoice: AVSpeechSynthesisVoice? {
+        AVSpeechSynthesisVoice.speechVoices().first {
+            $0.language.hasPrefix("en")
+                && ($0.identifier.lowercased().contains("siri")
+                        || $0.name.lowercased().contains("siri"))
+        }
+    }
+
+    /// The key for "whatever System Settings is set to". Nothing is downloaded
+    /// and no voice is named: the utterance is handed over with no voice at all,
+    /// so macOS uses the System Voice from Spoken Content — which is the one
+    /// place a Siri voice can end up being the one that speaks.
+    static let systemVoiceKey = "system"
+    static let siriVoiceKey = "siri"
+
     /// Where the natural voices are downloaded, for the menu to point at.
     static let voiceSettingsURL = URL(
         string: "x-apple.systempreferences:com.apple.preference.universalaccess?SpokenContent")
@@ -261,6 +282,8 @@ enum Alerts {
 
     static var voiceLabel: String {
         guard speaks else { return "Off" }
+        if voiceKey == systemVoiceKey { return "System Voice" }
+        if voiceKey == siriVoiceKey { return "Siri — \(siriVoice?.name ?? "system default")" }
         if voiceKey.hasPrefix("voice:") {
             return naturalVoices.first { $0.key == voiceKey }?.label
                 ?? resolvedVoice()?.name ?? "System voice"
@@ -274,10 +297,15 @@ enum Alerts {
 
     /// Just the voice's own name, for the one-line summary on the parent item.
     static var voiceShortName: String {
-        resolvedVoice()?.name ?? "system"
+        if voiceKey == systemVoiceKey { return "System Voice" }
+        return resolvedVoice()?.name ?? "system"
     }
 
     private static func resolvedVoice() -> AVSpeechSynthesisVoice? {
+        // nil means "no voice specified", which AVSpeechSynthesizer answers with
+        // the System Voice — deliberate, not a failure.
+        if voiceKey == systemVoiceKey { return nil }
+        if voiceKey == siriVoiceKey { return siriVoice }
         if voiceKey.hasPrefix("voice:") {
             let identifier = String(voiceKey.dropFirst("voice:".count))
             if let voice = AVSpeechSynthesisVoice(identifier: identifier) { return voice }
