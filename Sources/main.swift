@@ -883,28 +883,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             sub.addItem(item)
         }
 
-        let natural = Alerts.naturalVoices
+        // Premium voices get their own submenu, listed whether or not they're
+        // installed: a voice nobody knows exists is a voice nobody downloads.
         sub.addItem(.separator())
-        if natural.isEmpty {
-            let none = NSMenuItem(title: "No natural voices downloaded yet",
-                                  action: nil, keyEquivalent: "")
-            none.isEnabled = false
-            sub.addItem(none)
-        } else {
-            for voice in natural {
+        let premium = NSMenuItem(title: "Premium Voices", action: nil, keyEquivalent: "")
+        premium.submenu = premiumVoiceMenu()
+        premium.toolTip = "Apple's neural voices — a free download, far more natural than the "
+            + "voices that ship with macOS"
+        sub.addItem(premium)
+
+        // Anything Enhanced or Premium that's installed but not in that
+        // catalogue, so nothing on this Mac is hidden.
+        let others = Alerts.otherNaturalVoices
+        if !others.isEmpty {
+            sub.addItem(.separator())
+            for voice in others {
                 let item = NSMenuItem(title: voice.label, action: #selector(chooseAlertVoice(_:)),
                                       keyEquivalent: "")
                 item.target = self
                 item.representedObject = voice.key
                 item.state = (Alerts.speaks && Alerts.voiceKey == voice.key) ? .on : .off
-                item.toolTip = "Apple's neural voice — far more natural than the compact ones"
+                sub.addItem(item)
+            }
+        }
+        return sub
+    }
+
+    /// The Premium catalogue for American, British and Australian English.
+    /// Installed voices are selectable; the rest say what they'd cost to
+    /// download and open Manage Voices when clicked, since the point of listing
+    /// them is that you can't choose what you don't know about.
+    private func premiumVoiceMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        var lastAccent = ""
+        for entry in Alerts.premiumCatalogue {
+            if entry.accent != lastAccent {
+                if !lastAccent.isEmpty { sub.addItem(.separator()) }
+                let header = NSMenuItem(title: entry.accent, action: nil, keyEquivalent: "")
+                header.isEnabled = false
+                sub.addItem(header)
+                lastAccent = entry.accent
+            }
+
+            if let installed = Alerts.installedPremium(entry) {
+                let key = Alerts.key(for: installed)
+                let item = NSMenuItem(title: "\(entry.name) — installed",
+                                      action: #selector(chooseAlertVoice(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = key
+                item.state = (Alerts.speaks && Alerts.voiceKey == key) ? .on : .off
+                item.toolTip = "Choosing it speaks a sample"
+                sub.addItem(item)
+            } else {
+                let item = NSMenuItem(title: "\(entry.name) — download, \(entry.size)",
+                                      action: #selector(openVoiceSettings), keyEquivalent: "")
+                item.target = self
+                item.toolTip = "Not on this Mac yet. Opens Manage Voices, where you can download "
+                    + "\(entry.name) — it appears here once it's installed."
                 sub.addItem(item)
             }
         }
 
-        add("Download More Voices…", #selector(openVoiceSettings), to: sub)
-        addNote("Spoken Content › System Voice › Manage Voices — pick Enhanced or Premium",
-                to: sub)
+        sub.addItem(.separator())
+        add("Manage Voices…", #selector(openVoiceSettings), to: sub)
+        addNote("Download in System Settings, then pick it here", to: sub)
         return sub
     }
 

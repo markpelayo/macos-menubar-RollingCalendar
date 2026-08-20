@@ -258,9 +258,17 @@ A heads-up shortly before a block starts — a system sound, the name spoken alo
                                                        British · male — Daniel
                                                        American · female — Samantha
                                                        Robot — Zarvox
-                                                       ── whatever you've downloaded ──
-                                                       Ava (Premium) — US
-                                                       Download More Voices…
+                                                       Premium Voices ▸   American
+                                                                            Ava — installed
+                                                                            Zoe — download, ≈430 MB
+                                                                          British
+                                                                            Jamie — installed
+                                                                            Serena — download, ≈180 MB
+                                                                          Australian
+                                                                            Karen — download, ≈185 MB
+                                                                            Lee — download, ≈165 MB
+                                                                            Matilda — download, ≈115 MB
+                                                                          Manage Voices…
                         ─────────────────────────────
                         Categories: all ▸              All Categories, then one row per category
                         ─────────────────────────────
@@ -277,9 +285,17 @@ A heads-up shortly before a block starts — a system sound, the name spoken alo
 
 Three voices are always offered, because every Mac has them: **Daniel** (British), **Samantha** (American) and **Zarvox** (robot, the nearest thing macOS ships to a synthetic assistant). Each row shows the voice that will actually speak, and reads *not installed* rather than being selectable if the Mac hasn't got it.
 
-Those three are *compact* voices, which is why they sound clipped. **Apple's Enhanced and Premium voices are the fix** — the same `AVSpeechSynthesizer`, neural rather than concatenative, and genuinely natural. They're a download rather than something an app can bundle, so the menu lists whatever you've fetched, keyed by identifier so a Premium voice is never confused with its compact namesake. **Download More Voices…** opens the pane:
+Those three are *compact* voices, which is why they sound clipped. **Apple's Premium voices are the fix** — the same `AVSpeechSynthesizer`, neural rather than concatenative, and genuinely natural. They're a free download rather than something an app can bundle, so **Premium Voices ▸** lists the catalogue for the three accents worth having whether or not you've got them:
 
-> System Settings › Accessibility › Spoken Content › System Voice › **Manage Voices** — anything marked *Enhanced* or *Premium*. *Ava*, *Zoe*, *Evan* and *Nathan* are good starting points, around 100–500 MB each.
+| Accent | Voices |
+|---|---|
+| American | Ava, Zoe |
+| British | Jamie, Serena |
+| Australian | Karen, Lee, Matilda |
+
+A voice you have reads **— installed** and is selectable, which speaks a sample. One you don't reads **— download, ≈180 MB** and opens *Manage Voices* when clicked, because a voice nobody knows exists is a voice nobody downloads. It appears as installed next time the menu opens. Anything Enhanced or Premium that's installed but *not* in that list — a downloaded Enhanced Samantha, another locale — is listed separately, so nothing on your Mac is hidden by my choice of catalogue.
+
+Indian, Irish and South African English Premium voices exist too, and are reachable through *Manage Voices*; they're left out of the menu only to keep it short. Sizes are what System Settings reports and drift between macOS releases, so they're shown as approximate.
 
 **Siri is not offered, and can't be.** Those voices are reserved for Siri and for Spoken Content: `AVSpeechSynthesisVoice.speechVoices()` doesn't return them to an app, there's no API to name one, and making one the **System Voice** doesn't help either — asking the synthesiser to speak without naming a voice gets a default substituted rather than the Siri voice the system is set to. Tested with *System voice: Siri (Voice 2)*, the app still spoke in a compact voice. An entry that quietly says the right words in the wrong voice is worse than no entry, so every voice listed here is one you'll actually hear.
 

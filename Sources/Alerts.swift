@@ -205,11 +205,52 @@ enum Alerts {
                     preferred: ["Zarvox", "Trinoids", "Ralph", "Fred"])
     ]
 
-    /// Enhanced and Premium English voices the user has downloaded in System
-    /// Settings. These are Apple's own neural voices — the same engine, far more
-    /// natural than the compact ones above, and nothing to bundle or install
-    /// alongside the app. Selected by identifier, so a voice is never confused
-    /// with a same-named compact version.
+    /// Apple's Premium voices for the accents worth offering — American, British
+    /// and Australian. They're a download rather than something an app can
+    /// bundle, so the catalogue is listed whether or not it's installed: a voice
+    /// nobody knows exists is a voice nobody downloads.
+    ///
+    /// Sizes are what System Settings reports, and shift a little between macOS
+    /// releases, so they're shown as approximate.
+    struct PremiumVoice {
+        let name: String
+        let language: String
+        let accent: String
+        let size: String
+    }
+
+    static let premiumCatalogue: [PremiumVoice] = [
+        PremiumVoice(name: "Ava", language: "en-US", accent: "American", size: "≈320 MB"),
+        PremiumVoice(name: "Zoe", language: "en-US", accent: "American", size: "≈430 MB"),
+        PremiumVoice(name: "Jamie", language: "en-GB", accent: "British", size: "≈165 MB"),
+        PremiumVoice(name: "Serena", language: "en-GB", accent: "British", size: "≈180 MB"),
+        PremiumVoice(name: "Karen", language: "en-AU", accent: "Australian", size: "≈185 MB"),
+        PremiumVoice(name: "Lee", language: "en-AU", accent: "Australian", size: "≈165 MB"),
+        PremiumVoice(name: "Matilda", language: "en-AU", accent: "Australian", size: "≈115 MB")
+    ]
+
+    /// The installed Premium or Enhanced voice behind a catalogue entry, or nil
+    /// when it hasn't been downloaded. Compact voices of the same name don't
+    /// count — the whole point is the neural one.
+    static func installedPremium(_ wanted: PremiumVoice) -> AVSpeechSynthesisVoice? {
+        AVSpeechSynthesisVoice.speechVoices().first {
+            $0.language == wanted.language
+                && $0.quality != .default
+                && $0.name.localizedCaseInsensitiveContains(wanted.name)
+        }
+    }
+
+    static func key(for voice: AVSpeechSynthesisVoice) -> String { "voice:\(voice.identifier)" }
+
+    /// Anything Enhanced or Premium that's installed but *not* in the catalogue
+    /// above — a downloaded Enhanced Samantha, or a locale I haven't listed — so
+    /// nothing on the Mac is hidden just because it isn't in my list.
+    static var otherNaturalVoices: [(key: String, label: String)] {
+        let catalogued = Set(premiumCatalogue.compactMap { installedPremium($0)?.identifier })
+        return naturalVoices.filter { !catalogued.contains(String($0.key.dropFirst("voice:".count))) }
+    }
+
+    /// Every installed Enhanced or Premium English voice.
     static var naturalVoices: [(key: String, label: String)] {
         AVSpeechSynthesisVoice.speechVoices()
             .filter { $0.language.hasPrefix("en") && $0.quality != .default }

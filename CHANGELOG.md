@@ -12,8 +12,9 @@ All notable changes to this project are documented here. The format follows
   a block starts. Off by default. The lead time is 1 minute, 5 minutes or a custom value; the sound
   is any of the fourteen macOS ships, or one of your own copied into `~/Library/Sounds` by
   **Custom Sound…**; speech is `AVSpeechSynthesizer` with Daniel, Samantha and Zarvox always
-  available, plus any Enhanced or Premium voice you've downloaded, which is where natural-sounding
-  speech comes from. Sound and speech are exclusive — choosing one silences the other — and the whole
+  available, plus a **Premium Voices** submenu listing Apple's neural voices for American, British
+  and Australian English — installed ones selectable, the rest showing their download size and
+  opening Manage Voices, so you can tell they exist before going looking. Sound and speech are exclusive — choosing one silences the other — and the whole
   configuration is shown on the parent menu item, e.g. *Time Block Alerts: 5m | Voice — Daniel*.
   Siri isn't offered: macOS reserves those voices, and an app can neither name one nor inherit it from
   the System Voice setting — the synthesiser substitutes a default instead. Alerts can be limited to chosen categories, fire once
