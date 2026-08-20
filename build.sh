@@ -26,6 +26,7 @@ swiftc -O \
   Sources/DemoData.swift \
   Sources/LoginItem.swift \
   Sources/Alerts.swift \
+  Sources/ToggleRowView.swift \
   -o "${BUNDLE}/Contents/MacOS/${APP_NAME}"
 
 echo "==> Writing Info.plist"

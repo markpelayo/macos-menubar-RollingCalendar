@@ -326,6 +326,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// What the dropdown lists — one sleep-to-sleep cycle, not one calendar day.
     private var menuEvents: [CalEvent] = []
 
+    /// The alert rows whose titles depend on the settings below them. Held onto
+    /// so a toggle can update them without closing and rebuilding the menu.
+    private weak var alertsRootItem: NSMenuItem?
+    private weak var alertLeadItem: NSMenuItem?
+    private weak var alertSoundItem: NSMenuItem?
+    private weak var alertVoiceItem: NSMenuItem?
+    private weak var alertCategoryItem: NSMenuItem?
+    private weak var alertTestItem: NSMenuItem?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Width is recomputed from the label text on every tick — see resize().
         statusItem = NSStatusBar.system.statusItem(withLength: Config.timelineWidth)
@@ -689,6 +698,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         let alerts = NSMenuItem(title: Alerts.summary, action: nil, keyEquivalent: "")
+        alertsRootItem = alerts
         alerts.submenu = alertsMenu()
         // Ticked only when an alert could actually happen: a lead time, and at
         // least one of sound or speech.
@@ -736,6 +746,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let when = NSMenuItem(title: "Alert Me Before: \(Alerts.leadSummary)",
                               action: nil, keyEquivalent: "")
         when.submenu = alertLeadMenu()
+        alertLeadItem = when
         sub.addItem(when)
 
         // --- 2. how ---
@@ -744,6 +755,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             title: "Alert Sound: \(Alerts.playsSound ? Alerts.soundName : "Off")",
             action: nil, keyEquivalent: "")
         sound.submenu = alertSoundMenu()
+        alertSoundItem = sound
         sound.isEnabled = Alerts.hasLead
         sound.toolTip = Alerts.hasLead ? "Choosing a sound plays it" : "Choose a lead time first"
         sub.addItem(sound)
@@ -751,6 +763,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let voice = NSMenuItem(title: "Voice Sound: \(Alerts.voiceLabel)",
                                action: nil, keyEquivalent: "")
         voice.submenu = alertVoiceMenu()
+        alertVoiceItem = voice
         voice.isEnabled = Alerts.hasLead
         voice.toolTip = Alerts.hasLead
             ? "Says “\(Alerts.leadPhrase(Alerts.leads.min() ?? 60)) before Focus Work”"
@@ -764,6 +777,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                         : "Categories: \(Alerts.selectedCategories.count) selected",
                                     action: nil, keyEquivalent: "")
         categories.submenu = alertCategoryMenu()
+        alertCategoryItem = categories
         categories.isEnabled = Alerts.isEnabled
         categories.toolTip = Alerts.isEnabled
             ? "Only blocks in these categories are announced"
@@ -774,8 +788,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let test = NSMenuItem(title: "Test Alert Now", action: #selector(testAlert), keyEquivalent: "")
         test.target = self
         test.isEnabled = Alerts.isEnabled
+        alertTestItem = test
         sub.addItem(test)
         return sub
+    }
+
+    /// Repaints the rows that summarise the alert settings. Called after a toggle
+    /// that deliberately left the menu open, so what's on screen keeps up without
+    /// the menu being rebuilt underneath the pointer.
+    private func refreshAlertTitles() {
+        alertsRootItem?.title = Alerts.summary
+        alertsRootItem?.state = Alerts.isEnabled ? .on : .off
+        alertLeadItem?.title = "Alert Me Before: \(Alerts.leadSummary)"
+
+        alertSoundItem?.title = "Alert Sound: \(Alerts.playsSound ? Alerts.soundName : "Off")"
+        alertSoundItem?.isEnabled = Alerts.hasLead
+        alertVoiceItem?.title = "Voice Sound: \(Alerts.voiceLabel)"
+        alertVoiceItem?.isEnabled = Alerts.hasLead
+
+        alertCategoryItem?.title = Alerts.isEveryCategory
+            ? "Categories: all"
+            : "Categories: \(Alerts.selectedCategories.count) selected"
+        alertCategoryItem?.isEnabled = Alerts.isEnabled
+        alertTestItem?.isEnabled = Alerts.isEnabled
+    }
+
+    /// A row that toggles without dismissing the menu.
+    private func toggleRow(_ title: String, isOn: @escaping () -> Bool,
+                           toolTip: String? = nil, toggle: @escaping () -> Void) -> NSMenuItem {
+        let view = ToggleRowView(title: title, isOn: isOn(), toolTip: toolTip)
+        view.isOnNow = isOn
+        view.onToggle = toggle
+        view.onChanged = { [weak self] in self?.refreshAlertTitles() }
+        let item = NSMenuItem()
+        item.view = view
+        return item
     }
 
     /// How long before a block starts — as many as you like. Each row is a
@@ -785,44 +832,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func alertLeadMenu() -> NSMenu {
         let sub = NSMenu()
         sub.autoenablesItems = false
-        let chosen = Alerts.leads
 
-        let off = NSMenuItem(title: "Off", action: #selector(clearAlertLeads), keyEquivalent: "")
-        off.target = self
-        off.state = chosen.isEmpty ? .on : .off
-        off.toolTip = "Nothing will sound"
-        sub.addItem(off)
+        // Every row here stays open when clicked — arming three lead times
+        // shouldn't mean three trips through the menu.
+        sub.addItem(toggleRow("Off", isOn: { Alerts.leads.isEmpty },
+                              toolTip: "Nothing will sound") {
+            Alerts.clearLeads()
+        })
         sub.addItem(.separator())
 
         let presets = Alerts.leadPresets.map { $0.seconds }
         for preset in Alerts.leadPresets {
-            let item = NSMenuItem(title: preset.title, action: #selector(toggleAlertLead(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.representedObject = preset.seconds
-            item.state = chosen.contains(preset.seconds) ? .on : .off
-            sub.addItem(item)
+            let seconds = preset.seconds
+            sub.addItem(toggleRow(preset.title, isOn: { Alerts.leads.contains(seconds) }) {
+                Alerts.toggleLead(seconds)
+                if Alerts.hasLead { Alerts.requestNotificationPermissionIfNeeded() }
+            })
         }
 
         // Whatever you've added yourself sits alongside the presets, rather than
         // hidden behind the row that created it.
-        let customs = chosen.filter { !presets.contains($0) }
+        let customs = Alerts.leads.filter { !presets.contains($0) }
         if !customs.isEmpty {
             sub.addItem(.separator())
             for seconds in customs {
-                let item = NSMenuItem(title: "\(Alerts.leadPhrase(seconds)) before",
-                                      action: #selector(toggleAlertLead(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = seconds
-                item.state = .on
-                item.toolTip = "Your own lead time — click to remove it"
-                sub.addItem(item)
+                sub.addItem(toggleRow("\(Alerts.leadPhrase(seconds)) before",
+                                      isOn: { Alerts.leads.contains(seconds) },
+                                      toolTip: "Your own lead time — click to remove it") {
+                    Alerts.toggleLead(seconds)
+                })
             }
         }
 
         sub.addItem(.separator())
         add("Add Custom…", #selector(pickCustomAlertLead), to: sub)
-        addNote("Pick as many as you like — same sound and voice for each", to: sub)
+        addNote("Click as many as you like — the menu stays open", to: sub)
         return sub
     }
 
@@ -981,24 +1025,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let sub = NSMenu()
         sub.autoenablesItems = false
 
-        let all = NSMenuItem(title: "All Categories", action: #selector(chooseAllAlertCategories),
-                             keyEquivalent: "")
-        all.target = self
-        all.state = Alerts.isEveryCategory ? .on : .off
-        sub.addItem(all)
+        sub.addItem(toggleRow("All Categories", isOn: { Alerts.isEveryCategory }) {
+            Alerts.selectAllCategories()
+            Alerts.forgetAnnounced()
+        })
         sub.addItem(.separator())
 
         var names = KeywordRules.categories.map { $0.name }
         names.append(Alerts.uncategorized)
         for name in names {
-            let item = NSMenuItem(title: name, action: #selector(toggleAlertCategory(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.representedObject = name
-            item.state = (Alerts.isEveryCategory || Alerts.selectedCategories.contains(name))
-                ? .on : .off
-            sub.addItem(item)
+            sub.addItem(toggleRow(name, isOn: {
+                Alerts.isEveryCategory || Alerts.selectedCategories.contains(name)
+            }) {
+                Alerts.toggleCategory(name)
+                Alerts.forgetAnnounced()
+            })
         }
+
+        addNote("Click as many as you like — the menu stays open", to: sub)
         return sub
     }
 
@@ -1427,16 +1471,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func refreshNow() { fetch() }
 
-    @objc private func clearAlertLeads() { Alerts.clearLeads() }
-
-    /// Each lead time is a toggle rather than a choice, so several can be armed
-    /// at once.
-    @objc private func toggleAlertLead(_ sender: NSMenuItem) {
-        guard let seconds = sender.representedObject as? Int else { return }
-        Alerts.toggleLead(seconds)
-        if Alerts.hasLead { Alerts.requestNotificationPermissionIfNeeded() }
-    }
-
     /// Minutes, because that's how you think about a lead time — decimals allowed
     /// for the half-minute case.
     @objc private func pickCustomAlertLead() {
@@ -1528,17 +1562,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Whatever is downloaded there should show up next time the menu opens.
         Alerts.refreshVoices()
         NSWorkspace.shared.open(url)
-    }
-
-    @objc private func chooseAllAlertCategories() {
-        Alerts.selectAllCategories()
-        Alerts.forgetAnnounced()
-    }
-
-    @objc private func toggleAlertCategory(_ sender: NSMenuItem) {
-        guard let name = sender.representedObject as? String else { return }
-        Alerts.toggleCategory(name)
-        Alerts.forgetAnnounced()
     }
 
     @objc private func testAlert() { Alerts.test() }
