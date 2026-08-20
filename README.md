@@ -258,8 +258,6 @@ A heads-up shortly before a block starts — a system sound, the name spoken alo
                                                        British · male — Daniel
                                                        American · female — Samantha
                                                        Robot — Zarvox
-                                                       Siri — reserved by macOS
-                                                       System Voice — whatever Spoken Content uses
                                                        ── whatever you've downloaded ──
                                                        Ava (Premium) — US
                                                        Download More Voices…
@@ -283,12 +281,9 @@ Those three are *compact* voices, which is why they sound clipped. **Apple's Enh
 
 > System Settings › Accessibility › Spoken Content › System Voice › **Manage Voices** — anything marked *Enhanced* or *Premium*. *Ava*, *Zoe*, *Evan* and *Nathan* are good starting points, around 100–500 MB each.
 
-**Siri needs two entries, because Apple restricts it.** The Siri voices are reserved for Siri itself and for Spoken Content; `AVSpeechSynthesisVoice.speechVoices()` normally doesn't return them to an app at all, and there's no public API that asks for one by name. So:
+**Siri is not offered, and can't be.** Those voices are reserved for Siri and for Spoken Content: `AVSpeechSynthesisVoice.speechVoices()` doesn't return them to an app, there's no API to name one, and making one the **System Voice** doesn't help either — asking the synthesiser to speak without naming a voice gets a default substituted rather than the Siri voice the system is set to. Tested with *System voice: Siri (Voice 2)*, the app still spoke in a compact voice. An entry that quietly says the right words in the wrong voice is worse than no entry, so every voice listed here is one you'll actually hear.
 
-- **Siri** — shown only if this Mac actually hands one over, which some builds do once a Siri voice has been downloaded for Spoken Content. Otherwise the row reads *reserved by macOS* and can't be selected, rather than being offered and then staying silent.
-- **System Voice — whatever Spoken Content uses** — no voice is named at all, so macOS speaks with the System Voice from *System Settings › Accessibility › Spoken Content*. Set that to a Siri voice and this follows it. It's the one route by which Siri can end up being the voice that speaks, and it needs no download.
-
-Nothing called Jarvis exists as a macOS voice; *Robot — Zarvox* is the nearest thing shipped.
+Nothing called Jarvis exists as a macOS voice either; *Robot — Zarvox* is the nearest thing shipped. If you want natural speech, **Ava (Premium)** is the recommendation: download it once, pick it by name, and there's no ambiguity about what comes out.
 
 **Categories** narrow it further — announce meetings but not focus blocks, say. *All Categories* is stored as an empty selection rather than a list of every name, so a category added to your CSV later is included rather than quietly left out. Blocks that matched no rule are covered by the **Uncategorized** row.
 

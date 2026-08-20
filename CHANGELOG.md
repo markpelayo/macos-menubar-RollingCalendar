@@ -15,8 +15,8 @@ All notable changes to this project are documented here. The format follows
   available, plus any Enhanced or Premium voice you've downloaded, which is where natural-sounding
   speech comes from. Sound and speech are exclusive — choosing one silences the other — and the whole
   configuration is shown on the parent menu item, e.g. *Time Block Alerts: 5m | Voice — Daniel*.
-  Siri is offered where macOS exposes it and marked *reserved by macOS* where it doesn't, alongside a
-  **System Voice** option that names no voice and so follows whatever Spoken Content is set to. Alerts can be limited to chosen categories, fire once
+  Siri isn't offered: macOS reserves those voices, and an app can neither name one nor inherit it from
+  the System Voice setting — the synthesiser substitutes a default instead. Alerts can be limited to chosen categories, fire once
   per block, and skip all-day events. A Notification Center banner is posted too where macOS allows
   it, as a bonus rather than the mechanism.
 - **Run at Startup** — off, on, or on after a wait of 5 to 60 seconds. Off by default, since putting
