@@ -249,48 +249,39 @@ The [`examples/`](examples/) folder has importable `.ics` files built on the sam
 A heads-up shortly before a block starts — a system sound, the name spoken aloud, or both. Off until you set it up, and the menu is deliberately staged: **when**, then **how**, then **which blocks**. Each step stays greyed out until the one above it is answered, and the parent item is ticked only once an alert could actually happen.
 
 ```
-✓ Time Block Alerts ▸   Alert Me Before: 5 minutes ▸   Off · 1 minute before · 5 minutes before · Custom…
+✓ Time Block Alerts: 5m | Voice — Daniel ▸
+                        Alert Me Before: 5 minutes ▸   Off · 1 minute before · 5 minutes before · Custom…
                         ─────────────────────────────
-                        Alert Sound: Hero ▸            Off
-                                                       Tink · Pop · Bottle · Blow · Purr · Morse
-                                                       Ping · Glass · Frog · Funk · Sosumi
-                                                       Submarine · Hero · Basso
-                                                       ── your own sounds ──
-                                                       Custom Sound…
+                        Alert Sound: Off ▸             Off · 14 system sounds · your own · Custom Sound…
                         Voice Sound: British · male — Daniel ▸
                                                        Off
-                                                       American · male — Alex
                                                        British · male — Daniel
                                                        American · female — Samantha
-                                                       British · female — Kate
                                                        Robot — Zarvox
+                                                       ── whatever you've downloaded ──
+                                                       Ava (Premium, US)
+                                                       Download More Voices…
                         ─────────────────────────────
                         Categories: all ▸              All Categories, then one row per category
                         ─────────────────────────────
                         Test Alert Now
 ```
 
-Each parent item carries its own setting, so the whole configuration is readable without opening anything: *Alert Me Before: 5 minutes*, *Alert Sound: Hero*, *Voice Sound: British · male — Daniel*. **Off** lives inside each submenu rather than as a separate checkbox, so there's one control per decision. Both are greyed out until a lead time is set.
+**The parent item carries the whole configuration** — `Time Block Alerts: 5m | Voice — Daniel`, with `| 3 categories` appended when it isn't every category — so the setup is readable from the main menu without opening anything. Each row inside does the same for its own setting, and **Off** lives inside each submenu rather than as a separate checkbox: one control per decision.
+
+**Sound and speech are exclusive.** Choosing a sound switches the voice off, choosing a voice switches the sound off. One alert, one way of announcing itself — a chime under a sentence makes both harder to make out, and having to remember which of two checkboxes is on is worse than seeing one answer on the parent item.
 
 **The sounds are the ones macOS already ships** in `/System/Library/Sounds` — fourteen, quietest first, which is all Apple provides. Choosing one plays it. **Custom Sound…** copies an AIFF, WAV, MP3 or M4A into `~/Library/Sounds`, where `NSSound` can find it by name from then on; it appears in its own group below the system ones, and anything already in that folder is picked up automatically. A file macOS can't actually open is refused rather than copied in and left silent.
 
 **Speech** is `AVSpeechSynthesizer` — no network, no permission prompt. It says *"5 minutes before Focus Work"*, taking the lead time from your own setting so the two can't disagree, and reading only the part of the name before the first `|`, since a bar reads aloud as an awkward pause. Two blocks starting together are announced in one sentence rather than talking over each other.
 
-Each voice entry shows the voice that will actually speak, and is resolved against what's installed rather than assumed:
+Three voices are always offered, because every Mac has them: **Daniel** (British), **Samantha** (American) and **Zarvox** (robot, the nearest thing macOS ships to a synthetic assistant). Each row shows the voice that will actually speak, and reads *not installed* rather than being selectable if the Mac hasn't got it.
 
-| Menu | Prefers, best first |
-|---|---|
-| American · male | Alex, Aaron, Fred |
-| British · male | Daniel, Oliver, Arthur |
-| American · female | Samantha, Allison, Ava, Susan |
-| British · female | Kate, Serena, Stephanie, Fiona |
-| Robot | Zarvox, Trinoids, Ralph |
+Those three are *compact* voices, which is why they sound clipped. **Apple's Enhanced and Premium voices are the fix** — the same `AVSpeechSynthesizer`, neural rather than concatenative, and genuinely natural. They're a download rather than something an app can bundle, so the menu lists whatever you've fetched, keyed by identifier so a Premium voice is never confused with its compact namesake. **Download More Voices…** opens the pane:
 
-If a Mac has none of them for a given row, the row reads *not installed* and can't be selected — better than a menu item that quietly says nothing. More voices come from **System Settings › Accessibility › Spoken Content › System Voice › Manage Voices**.
+> System Settings › Accessibility › Spoken Content › System Voice › **Manage Voices** — anything marked *Enhanced* or *Premium*. *Ava*, *Zoe*, *Evan* and *Nathan* are good starting points, around 100–500 MB each.
 
-**Siri's voice isn't available**, and neither is anything called Jarvis: macOS keeps the Siri voices private, and `AVSpeechSynthesisVoice.speechVoices()` never hands them to an app. *Robot* is the nearest thing macOS ships to a synthetic assistant.
-
-Sound comes first and speech follows just under a second later, since a chime under a sentence makes both harder to make out.
+**Siri's voice isn't available**, and neither is anything called Jarvis: macOS keeps the Siri voices private, and `AVSpeechSynthesisVoice.speechVoices()` never hands them to an app.
 
 **Categories** narrow it further — announce meetings but not focus blocks, say. *All Categories* is stored as an empty selection rather than a list of every name, so a category added to your CSV later is included rather than quietly left out. Blocks that matched no rule are covered by the **Uncategorized** row.
 

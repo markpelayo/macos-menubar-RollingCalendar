@@ -42,8 +42,50 @@ enum Alerts {
     static var playsSound: Bool { UserDefaults.standard.bool(forKey: "alertSound") }
     static var speaks: Bool { UserDefaults.standard.bool(forKey: "alertSpeech") }
 
-    static func setPlaysSound(_ on: Bool) { UserDefaults.standard.set(on, forKey: "alertSound") }
-    static func setSpeaks(_ on: Bool) { UserDefaults.standard.set(on, forKey: "alertSpeech") }
+    /// Sound and speech are exclusive: one alert, one way of announcing itself.
+    /// Choosing either silences the other, so there's never a chime and a
+    /// sentence competing for the same moment.
+    static func chooseSound(_ name: String) {
+        let d = UserDefaults.standard
+        d.set(true, forKey: "alertSound")
+        d.set(false, forKey: "alertSpeech")
+        d.set(name, forKey: "alertSoundName")
+    }
+
+    static func chooseVoice(_ key: String) {
+        let d = UserDefaults.standard
+        d.set(true, forKey: "alertSpeech")
+        d.set(false, forKey: "alertSound")
+        d.set(key, forKey: "alertVoice")
+    }
+
+    static func setPlaysSound(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: "alertSound")
+        if on { UserDefaults.standard.set(false, forKey: "alertSpeech") }
+    }
+
+    static func setSpeaks(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: "alertSpeech")
+        if on { UserDefaults.standard.set(false, forKey: "alertSound") }
+    }
+
+    /// Compact lead time for the menu bar's own summary: "5m", "90s", "2h".
+    static var leadShorthand: String {
+        let seconds = lead
+        if seconds % 3600 == 0 { return "\(seconds / 3600)h" }
+        if seconds % 60 == 0 { return "\(seconds / 60)m" }
+        return "\(seconds)s"
+    }
+
+    /// The whole configuration on one line, for the parent menu item:
+    /// "Time Block Alerts: 5m | Voice — Daniel".
+    static var summary: String {
+        guard isEnabled else { return "Time Block Alerts" }
+        let how = playsSound ? "Sound — \(soundName)" : "Voice — \(voiceShortName)"
+        var parts = [leadShorthand, how]
+        if !isEveryCategory { parts.append("\(selectedCategories.count) categories") }
+        return "Time Block Alerts: " + parts.joined(separator: " | ")
+    }
 
     /// Every sound macOS ships in /System/Library/Sounds, ordered quietest
     /// first, plus anything the user has dropped into `~/Library/Sounds` — which
@@ -119,8 +161,7 @@ enum Alerts {
             try? fm.removeItem(at: destination)
             return (nil, "macOS couldn't open “\(source.lastPathComponent)” as a sound.")
         }
-        setSoundName(name)
-        setPlaysSound(true)
+        chooseSound(name)
         return (name, nil)
     }
 
@@ -151,21 +192,40 @@ enum Alerts {
         let preferred: [String]
     }
 
+    /// The three that are always worth offering, because they're installed on
+    /// every Mac. Anything more natural has to be downloaded, so it's discovered
+    /// rather than assumed — see `naturalVoices`.
     static let voiceOptions: [VoiceOption] = [
-        VoiceOption(key: "en-US-male", label: "American · male", language: "en-US", gender: .male,
-                    preferred: ["Alex", "Aaron", "Fred"]),
         VoiceOption(key: "en-GB-male", label: "British · male", language: "en-GB", gender: .male,
                     preferred: ["Daniel", "Oliver", "Arthur"]),
         VoiceOption(key: "en-US-female", label: "American · female", language: "en-US", gender: .female,
-                    preferred: ["Samantha", "Allison", "Ava", "Susan", "Nicky", "Joelle"]),
-        VoiceOption(key: "en-GB-female", label: "British · female", language: "en-GB", gender: .female,
-                    preferred: ["Kate", "Serena", "Stephanie", "Martha", "Fiona"]),
+                    preferred: ["Samantha", "Allison", "Susan", "Nicky"]),
         // The closest macOS comes to a Jarvis: a deliberately synthetic voice.
         VoiceOption(key: "robot", label: "Robot", language: nil, gender: nil,
                     preferred: ["Zarvox", "Trinoids", "Ralph", "Fred"])
     ]
 
-    static let defaultVoiceKey = "en-US-male"
+    /// Enhanced and Premium English voices the user has downloaded in System
+    /// Settings. These are Apple's own neural voices — the same engine, far more
+    /// natural than the compact ones above, and nothing to bundle or install
+    /// alongside the app. Selected by identifier, so a voice is never confused
+    /// with a same-named compact version.
+    static var naturalVoices: [(key: String, label: String)] {
+        AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix("en") && $0.quality != .default }
+            .sorted { ($0.name, $0.language) < ($1.name, $1.language) }
+            .map { voice in
+                let tier = voice.quality == .premium ? "Premium" : "Enhanced"
+                let region = voice.language.split(separator: "-").last.map(String.init) ?? ""
+                return ("voice:\(voice.identifier)", "\(voice.name) (\(tier), \(region))")
+            }
+    }
+
+    /// Where the natural voices are downloaded, for the menu to point at.
+    static let voiceSettingsURL = URL(
+        string: "x-apple.systempreferences:com.apple.preference.universalaccess?SpokenContent")
+
+    static let defaultVoiceKey = "en-GB-male"
 
     static var voiceKey: String {
         UserDefaults.standard.string(forKey: "alertVoice") ?? defaultVoiceKey
@@ -200,15 +260,30 @@ enum Alerts {
     }
 
     static var voiceLabel: String {
-        guard speaks, let option = voiceOptions.first(where: { $0.key == voiceKey }) else {
-            return "Off"
+        guard speaks else { return "Off" }
+        if voiceKey.hasPrefix("voice:") {
+            return naturalVoices.first { $0.key == voiceKey }?.label
+                ?? resolvedVoice()?.name ?? "System voice"
+        }
+        guard let option = voiceOptions.first(where: { $0.key == voiceKey }) else {
+            return "System voice"
         }
         if let name = voiceName(for: option) { return "\(option.label) — \(name)" }
         return option.label
     }
 
+    /// Just the voice's own name, for the one-line summary on the parent item.
+    static var voiceShortName: String {
+        resolvedVoice()?.name ?? "system"
+    }
+
     private static func resolvedVoice() -> AVSpeechSynthesisVoice? {
-        guard let option = voiceOptions.first(where: { $0.key == voiceKey }) else { return nil }
+        if voiceKey.hasPrefix("voice:") {
+            let identifier = String(voiceKey.dropFirst("voice:".count))
+            if let voice = AVSpeechSynthesisVoice(identifier: identifier) { return voice }
+        }
+        guard let option = voiceOptions.first(where: { $0.key == voiceKey })
+                ?? voiceOptions.first else { return nil }
         return installedVoice(for: option)
     }
 

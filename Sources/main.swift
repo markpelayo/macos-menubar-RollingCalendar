@@ -683,7 +683,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(saved)
         }
 
-        let alerts = NSMenuItem(title: "Time Block Alerts", action: nil, keyEquivalent: "")
+        let alerts = NSMenuItem(title: Alerts.summary, action: nil, keyEquivalent: "")
         alerts.submenu = alertsMenu()
         // Ticked only when an alert could actually happen: a lead time, and at
         // least one of sound or speech.
@@ -848,8 +848,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return sub
     }
 
-    /// Off, four accents, and a robot. Anything the Mac hasn't got installed is
-    /// shown as unavailable rather than offered and then staying silent.
+    /// Off, the three voices every Mac has, then any Enhanced or Premium voice
+    /// the user has downloaded — those are the natural-sounding ones, and they
+    /// only exist if they've been fetched, so they're discovered rather than
+    /// assumed. Choosing any of them silences the alert sound: one alert, one
+    /// way of announcing itself.
     private func alertVoiceMenu() -> NSMenu {
         let sub = NSMenu()
         sub.autoenablesItems = false
@@ -866,8 +869,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 let missing = NSMenuItem(title: "\(option.label) — not installed",
                                          action: nil, keyEquivalent: "")
                 missing.isEnabled = false
-                missing.toolTip = "Add it in System Settings › Accessibility › Spoken Content › "
-                    + "System Voice › Manage Voices"
                 sub.addItem(missing)
                 continue
             }
@@ -879,7 +880,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             sub.addItem(item)
         }
 
-        addNote("Siri's voice is private to macOS, so it can't be used here", to: sub)
+        let natural = Alerts.naturalVoices
+        sub.addItem(.separator())
+        if natural.isEmpty {
+            let none = NSMenuItem(title: "No natural voices downloaded yet",
+                                  action: nil, keyEquivalent: "")
+            none.isEnabled = false
+            sub.addItem(none)
+        } else {
+            for voice in natural {
+                let item = NSMenuItem(title: voice.label, action: #selector(chooseAlertVoice(_:)),
+                                      keyEquivalent: "")
+                item.target = self
+                item.representedObject = voice.key
+                item.state = (Alerts.speaks && Alerts.voiceKey == voice.key) ? .on : .off
+                item.toolTip = "Apple's neural voice — far more natural than the compact ones"
+                sub.addItem(item)
+            }
+        }
+
+        add("Download More Voices…", #selector(openVoiceSettings), to: sub)
+        addNote("Spoken Content › System Voice › Manage Voices — pick Enhanced or Premium",
+                to: sub)
         return sub
     }
 
@@ -1374,8 +1396,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Alerts.setPlaysSound(false)
             return
         }
-        Alerts.setPlaysSound(true)
-        Alerts.setSoundName(name)
+        // Picking a sound turns the voice off, and vice versa.
+        Alerts.chooseSound(name)
         Alerts.play(name)
         Alerts.requestNotificationPermissionIfNeeded()
     }
@@ -1422,10 +1444,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Alerts.setSpeaks(false)
             return
         }
-        Alerts.setSpeaks(true)
-        Alerts.setVoiceKey(key)
+        Alerts.chooseVoice(key)
         Alerts.test()
         Alerts.requestNotificationPermissionIfNeeded()
+    }
+
+    /// Straight to the pane where Apple's natural voices are downloaded.
+    @objc private func openVoiceSettings() {
+        guard let url = Alerts.voiceSettingsURL else { return }
+        NSWorkspace.shared.open(url)
     }
 
     @objc private func chooseAllAlertCategories() {
