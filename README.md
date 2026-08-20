@@ -261,7 +261,7 @@ A heads-up shortly before a block starts — a system sound, the name spoken alo
                                                        Siri — reserved by macOS
                                                        System Voice — whatever Spoken Content uses
                                                        ── whatever you've downloaded ──
-                                                       Ava (Premium, US)
+                                                       Ava (Premium) — US
                                                        Download More Voices…
                         ─────────────────────────────
                         Categories: all ▸              All Categories, then one row per category

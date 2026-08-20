@@ -215,9 +215,14 @@ enum Alerts {
             .filter { $0.language.hasPrefix("en") && $0.quality != .default }
             .sorted { ($0.name, $0.language) < ($1.name, $1.language) }
             .map { voice in
-                let tier = voice.quality == .premium ? "Premium" : "Enhanced"
                 let region = voice.language.split(separator: "-").last.map(String.init) ?? ""
-                return ("voice:\(voice.identifier)", "\(voice.name) (\(tier), \(region))")
+                // Some voices already carry their tier in the name — "Ava
+                // (Premium)" — so only add it when it isn't there already.
+                let tier = voice.quality == .premium ? "Premium" : "Enhanced"
+                let name = voice.name.localizedCaseInsensitiveContains(tier)
+                    ? voice.name
+                    : "\(voice.name) (\(tier))"
+                return ("voice:\(voice.identifier)", "\(name) — \(region)")
             }
     }
 
