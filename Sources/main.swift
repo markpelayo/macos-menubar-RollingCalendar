@@ -694,7 +694,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // least one of sound or speech.
         alerts.state = Alerts.isEnabled ? .on : .off
         alerts.toolTip = Alerts.isEnabled
-            ? "\(Alerts.leadPhrase()) before a block starts"
+            ? "\(Alerts.leadSummary) before a block starts"
             : "Off — choose when to be told, then how"
         menu.addItem(alerts)
 
@@ -733,9 +733,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sub.autoenablesItems = false
 
         // --- 1. when ---
-        let when = NSMenuItem(
-            title: "Alert Me Before: \(Alerts.lead > 0 ? Alerts.leadPhrase() : "Off")",
-            action: nil, keyEquivalent: "")
+        let when = NSMenuItem(title: "Alert Me Before: \(Alerts.leadSummary)",
+                              action: nil, keyEquivalent: "")
         when.submenu = alertLeadMenu()
         sub.addItem(when)
 
@@ -745,16 +744,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             title: "Alert Sound: \(Alerts.playsSound ? Alerts.soundName : "Off")",
             action: nil, keyEquivalent: "")
         sound.submenu = alertSoundMenu()
-        sound.isEnabled = Alerts.lead > 0
-        sound.toolTip = Alerts.lead > 0 ? "Choosing a sound plays it" : "Choose a lead time first"
+        sound.isEnabled = Alerts.hasLead
+        sound.toolTip = Alerts.hasLead ? "Choosing a sound plays it" : "Choose a lead time first"
         sub.addItem(sound)
 
         let voice = NSMenuItem(title: "Voice Sound: \(Alerts.voiceLabel)",
                                action: nil, keyEquivalent: "")
         voice.submenu = alertVoiceMenu()
-        voice.isEnabled = Alerts.lead > 0
-        voice.toolTip = Alerts.lead > 0
-            ? "Says “\(Alerts.leadPhrase()) before Focus Work”"
+        voice.isEnabled = Alerts.hasLead
+        voice.toolTip = Alerts.hasLead
+            ? "Says “\(Alerts.leadPhrase(Alerts.leads.min() ?? 60)) before Focus Work”"
             : "Choose a lead time first"
         sub.addItem(voice)
 
@@ -779,33 +778,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return sub
     }
 
-    /// How long before a block starts.
+    /// How long before a block starts — as many as you like. Each row is a
+    /// toggle, so ten minutes to wrap up and one minute to actually move can both
+    /// be on; they share the one sound or voice, and only the number spoken
+    /// changes.
     private func alertLeadMenu() -> NSMenu {
         let sub = NSMenu()
         sub.autoenablesItems = false
+        let chosen = Alerts.leads
 
-        let off = NSMenuItem(title: "Off", action: #selector(chooseAlertLead(_:)), keyEquivalent: "")
+        let off = NSMenuItem(title: "Off", action: #selector(clearAlertLeads), keyEquivalent: "")
         off.target = self
-        off.representedObject = 0
-        off.state = Alerts.lead == 0 ? .on : .off
+        off.state = chosen.isEmpty ? .on : .off
+        off.toolTip = "Nothing will sound"
         sub.addItem(off)
+        sub.addItem(.separator())
 
+        let presets = Alerts.leadPresets.map { $0.seconds }
         for preset in Alerts.leadPresets {
-            let item = NSMenuItem(title: preset.title, action: #selector(chooseAlertLead(_:)),
+            let item = NSMenuItem(title: preset.title, action: #selector(toggleAlertLead(_:)),
                                   keyEquivalent: "")
             item.target = self
             item.representedObject = preset.seconds
-            item.state = Alerts.lead == preset.seconds ? .on : .off
+            item.state = chosen.contains(preset.seconds) ? .on : .off
             sub.addItem(item)
         }
 
-        let isCustom = Alerts.lead > 0 && !Alerts.leadPresets.contains { $0.seconds == Alerts.lead }
-        let custom = NSMenuItem(
-            title: isCustom ? "Custom: \(Alerts.leadPhrase()) before…" : "Custom…",
-            action: #selector(pickCustomAlertLead), keyEquivalent: "")
-        custom.target = self
-        custom.state = isCustom ? .on : .off
-        sub.addItem(custom)
+        // Whatever you've added yourself sits alongside the presets, rather than
+        // hidden behind the row that created it.
+        let customs = chosen.filter { !presets.contains($0) }
+        if !customs.isEmpty {
+            sub.addItem(.separator())
+            for seconds in customs {
+                let item = NSMenuItem(title: "\(Alerts.leadPhrase(seconds)) before",
+                                      action: #selector(toggleAlertLead(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = seconds
+                item.state = .on
+                item.toolTip = "Your own lead time — click to remove it"
+                sub.addItem(item)
+            }
+        }
+
+        sub.addItem(.separator())
+        add("Add Custom…", #selector(pickCustomAlertLead), to: sub)
+        addNote("Pick as many as you like — same sound and voice for each", to: sub)
         return sub
     }
 
@@ -1410,10 +1427,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func refreshNow() { fetch() }
 
-    @objc private func chooseAlertLead(_ sender: NSMenuItem) {
+    @objc private func clearAlertLeads() { Alerts.clearLeads() }
+
+    /// Each lead time is a toggle rather than a choice, so several can be armed
+    /// at once.
+    @objc private func toggleAlertLead(_ sender: NSMenuItem) {
         guard let seconds = sender.representedObject as? Int else { return }
-        Alerts.setLead(seconds)
-        if seconds > 0 { Alerts.requestNotificationPermissionIfNeeded() }
+        Alerts.toggleLead(seconds)
+        if Alerts.hasLead { Alerts.requestNotificationPermissionIfNeeded() }
     }
 
     /// Minutes, because that's how you think about a lead time — decimals allowed
@@ -1423,22 +1444,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.activate(ignoringOtherApps: true)
 
         let alert = NSAlert()
-        alert.messageText = "Custom Lead Time"
-        alert.informativeText = "How long before a block starts should the alert sound? "
-            + "Minutes, from 0.25 to 120."
-        alert.addButton(withTitle: "Set")
+        alert.messageText = "Add a Lead Time"
+        alert.informativeText = "How long before a block starts should it sound? Minutes, from "
+            + "0.25 to 120. It's added to the ones already chosen rather than replacing them."
+        alert.addButton(withTitle: "Add")
         alert.addButton(withTitle: "Cancel")
 
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 120, height: 24))
-        field.stringValue = Alerts.lead > 0
-            ? String(format: "%g", Double(Alerts.lead) / 60) : "3"
+        field.stringValue = "3"
         alert.accessoryView = field
         alert.window.initialFirstResponder = field
 
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         let text = field.stringValue.trimmingCharacters(in: .whitespaces)
         guard let minutes = Double(text), minutes > 0 else { return }
-        Alerts.setLead(Int((min(max(minutes, 0.25), 120) * 60).rounded()))
+        Alerts.toggleLead(Int((min(max(minutes, 0.25), 120) * 60).rounded()))
         Alerts.requestNotificationPermissionIfNeeded()
     }
 

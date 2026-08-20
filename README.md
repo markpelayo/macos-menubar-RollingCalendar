@@ -249,8 +249,13 @@ The [`examples/`](examples/) folder has importable `.ics` files built on the sam
 A heads-up shortly before a block starts — a system sound, the name spoken aloud, or both. Off until you set it up, and the menu is deliberately staged: **when**, then **how**, then **which blocks**. Each step stays greyed out until the one above it is answered, and the parent item is ticked only once an alert could actually happen.
 
 ```
-✓ Time Block Alerts: 5m | Voice — Daniel ▸
-                        Alert Me Before: 5 minutes ▸   Off · 1 minute before · 5 minutes before · Custom…
+✓ Time Block Alerts: 10m, 1m | Voice — Daniel ▸
+                        Alert Me Before: 10 minutes, 1 minute ▸
+                                                       Off
+                                                       1 minute before      ✓
+                                                       5 minutes before
+                                                       10 minutes before    ✓
+                                                       Add Custom…
                         ─────────────────────────────
                         Alert Sound: Off ▸             Off · 14 system sounds · your own · Custom Sound…
                         Voice Sound: British · male — Daniel ▸
@@ -275,7 +280,11 @@ A heads-up shortly before a block starts — a system sound, the name spoken alo
                         Test Alert Now
 ```
 
-**The parent item carries the whole configuration** — `Time Block Alerts: 5m | Voice — Daniel`, with `| 3 categories` appended when it isn't every category — so the setup is readable from the main menu without opening anything. Each row inside does the same for its own setting, and **Off** lives inside each submenu rather than as a separate checkbox: one control per decision.
+**Lead times are a set, not a choice.** Every row in *Alert Me Before* is a toggle, so ten minutes to start wrapping up and one minute to actually move can both be armed; **Add Custom…** adds another rather than replacing what's there, and custom values sit alongside the presets where you can click them off again. They all share the one sound or voice — only the number spoken changes. **Off** clears the lot.
+
+Each block is announced once *per lead time*, and an alert that's more than 30 seconds late — the app was launched mid-window, or the Mac was asleep — is marked done rather than announced, since saying "10 minutes before" with three minutes left is simply wrong. When two lead times land in the same second, the nearer number is the one spoken.
+
+**The parent item carries the whole configuration** — `Time Block Alerts: 10m, 1m | Voice — Daniel`, with `| 3 categories` appended when it isn't every category — so the setup is readable from the main menu without opening anything. Each row inside does the same for its own setting, and **Off** lives inside each submenu rather than as a separate checkbox: one control per decision.
 
 **Sound and speech are exclusive.** Choosing a sound switches the voice off, choosing a voice switches the sound off. One alert, one way of announcing itself — a chime under a sentence makes both harder to make out, and having to remember which of two checkboxes is on is worse than seeing one answer on the parent item.
 
@@ -303,7 +312,7 @@ Nothing called Jarvis exists as a macOS voice either; *Robot — Zarvox* is the 
 
 **Categories** narrow it further — announce meetings but not focus blocks, say. *All Categories* is stored as an empty selection rather than a list of every name, so a category added to your CSV later is included rather than quietly left out. Blocks that matched no rule are covered by the **Uncategorized** row.
 
-A block is announced **once**: the check runs on the same one-second tick as the redraw, and each block is remembered by start time and name until the app quits. Changing the lead time or the categories forgets that, so a block skipped a moment ago can still be announced under the new settings. All-day events never trigger an alert.
+The check runs on the same one-second tick as the redraw, and each block is remembered by start time, name **and lead time** until the app quits. Changing the lead times or the categories forgets that, so a block skipped a moment ago can still be announced under the new settings. All-day events never trigger an alert.
 
 A Notification Center **banner** is also posted, if macOS has granted permission. It's a bonus rather than the mechanism: this app is built locally rather than notarised, so that permission may never be granted — the sound and the speech don't depend on it.
 
@@ -356,7 +365,7 @@ Most of it is in the menu — click the strip:
 | **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
 | **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 360 pt, about 47 characters) |
 | **Restore Defaults** | Back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Greyed out when nothing has been changed |
-| **Time Block Alerts ▸** | A sound and/or the block name spoken, a set time before it starts, for the categories you choose (**off** by default) |
+| **Time Block Alerts ▸** | A sound or the block name spoken, at one or more lead times before a block starts, for the categories you choose (**off** by default) |
 | **Refresh Now (⌘R)** | Re-reads the feed immediately instead of waiting for the five-minute timer |
 | **Run at Startup ▸** | Off, on, or on after a wait of 5–60 s (**off** by default) |
 

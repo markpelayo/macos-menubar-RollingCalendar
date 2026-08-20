@@ -9,7 +9,8 @@ All notable changes to this project are documented here. The format follows
 ### Added
 
 - **Time Block Alerts** — a system sound, the block name spoken aloud, or both, a chosen time before
-  a block starts. Off by default. The lead time is 1 minute, 5 minutes or a custom value; the sound
+  a block starts. Off by default. Lead times are a set rather than a choice — 1, 5 and 10 minutes plus
+  any custom value, as many at once as you like, each announced once per block; the sound
   is any of the fourteen macOS ships, or one of your own copied into `~/Library/Sounds` by
   **Custom Sound…**; speech is `AVSpeechSynthesizer` with Daniel, Samantha and Zarvox always
   available, plus a **Premium Voices** submenu listing Apple's neural voices for American, British

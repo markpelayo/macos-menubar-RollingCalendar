@@ -13,23 +13,51 @@ enum Alerts {
 
     // MARK: - When
 
-    /// Lead time in seconds. Zero is off, which is where everyone starts.
-    static var lead: Int { UserDefaults.standard.integer(forKey: "alertLead") }
+    /// Lead times in seconds, longest first. Empty is off, which is where
+    /// everyone starts. Several at once is the point: ten minutes to wrap up,
+    /// one minute to actually move.
+    static var leads: [Int] {
+        if let stored = UserDefaults.standard.array(forKey: "alertLeads") as? [Int] {
+            return stored.filter { $0 > 0 }.sorted(by: >)
+        }
+        // Up to 1.1.0 there was one lead time under a different key.
+        let legacy = UserDefaults.standard.integer(forKey: "alertLead")
+        return legacy > 0 ? [legacy] : []
+    }
 
-    /// The two obvious choices; anything else comes from Custom…
+    /// The three obvious choices; anything else comes from Add Custom…
     static let leadPresets: [(title: String, seconds: Int)] = [
         ("1 minute before", 60),
-        ("5 minutes before", 300)
+        ("5 minutes before", 300),
+        ("10 minutes before", 600)
     ]
 
-    static func setLead(_ seconds: Int) {
-        UserDefaults.standard.set(max(0, seconds), forKey: "alertLead")
-        fired.removeAll()   // a new lead time means nothing counts as announced
+    static func setLeads(_ list: [Int]) {
+        let clean = Array(Set(list.filter { $0 > 0 })).sorted(by: >)
+        UserDefaults.standard.set(clean, forKey: "alertLeads")
+        UserDefaults.standard.removeObject(forKey: "alertLead")
+        fired.removeAll()   // a change of lead times means nothing counts as announced
     }
+
+    /// One click adds or removes a lead time, so several can be on at once.
+    static func toggleLead(_ seconds: Int) {
+        var current = leads
+        if let index = current.firstIndex(of: seconds) {
+            current.remove(at: index)
+        } else {
+            current.append(seconds)
+        }
+        setLeads(current)
+    }
+
+    static func clearLeads() { setLeads([]) }
+
+    /// Are alerts armed at all? Kept as a name that reads the same as before.
+    static var hasLead: Bool { !leads.isEmpty }
 
     /// "1 minute", "5 minutes", "90 seconds" — used in the menu and spoken aloud,
     /// so the two can never disagree.
-    static func leadPhrase(_ seconds: Int = Alerts.lead) -> String {
+    static func leadPhrase(_ seconds: Int) -> String {
         if seconds % 60 == 0 {
             let minutes = seconds / 60
             return minutes == 1 ? "1 minute" : "\(minutes) minutes"
@@ -69,12 +97,21 @@ enum Alerts {
         if on { UserDefaults.standard.set(false, forKey: "alertSound") }
     }
 
-    /// Compact lead time for the menu bar's own summary: "5m", "90s", "2h".
-    static var leadShorthand: String {
-        let seconds = lead
+    /// Compact form for the summary: "10m", "90s", "2h".
+    static func shorthand(_ seconds: Int) -> String {
         if seconds % 3600 == 0 { return "\(seconds / 3600)h" }
         if seconds % 60 == 0 { return "\(seconds / 60)m" }
         return "\(seconds)s"
+    }
+
+    /// Every lead time on one line, longest first: "10m, 5m, 1m".
+    static var leadShorthand: String {
+        leads.map { shorthand($0) }.joined(separator: ", ")
+    }
+
+    /// The same, spelled out, for the menu row: "10 minutes, 5 minutes, 1 minute".
+    static var leadSummary: String {
+        leads.isEmpty ? "Off" : leads.map { leadPhrase($0) }.joined(separator: ", ")
     }
 
     /// The whole configuration on one line, for the parent menu item:
@@ -377,7 +414,7 @@ enum Alerts {
 
     /// True when an alert can actually happen: a lead time, and at least one way
     /// of announcing itself. Categories only narrow it down from here.
-    static var isEnabled: Bool { lead > 0 && (playsSound || speaks) }
+    static var isEnabled: Bool { hasLead && (playsSound || speaks) }
 
     // MARK: - Which categories
 
@@ -425,30 +462,47 @@ enum Alerts {
     private static let synthesizer = AVSpeechSynthesizer()
     private static var askedForNotifications = false
 
-    private static func key(_ event: CalEvent) -> String {
-        "\(Int(event.start.timeIntervalSince1970))|\(event.title)"
+    /// A block is announced once *per lead time*, so 10m, 5m and 1m each get
+    /// their turn on the same block.
+    private static func key(_ event: CalEvent, _ lead: Int) -> String {
+        "\(Int(event.start.timeIntervalSince1970))|\(lead)|\(event.title)"
     }
+
+    /// How late an alert may be and still be worth making. Beyond this the
+    /// moment has passed — the app was launched mid-window, or the Mac was
+    /// asleep — and announcing "10 minutes before" with three minutes left would
+    /// simply be wrong. Those are marked as done, silently.
+    private static let catchUpTolerance: TimeInterval = 30
 
     /// Called every tick. Announces anything whose start is now within the lead
     /// time, once, and only for categories still switched on.
     static func check(_ events: [CalEvent], now: Date) {
         guard isEnabled else { return }
-        let window = TimeInterval(lead)
+        let leads = self.leads
+        guard let longest = leads.first else { return }
 
-        var due: [CalEvent] = []
+        var due: [(name: String, lead: Int)] = []
         for event in events where !event.isAllDay {
             let seconds = event.start.timeIntervalSince(now)
-            guard seconds > 0, seconds <= window else { continue }
+            guard seconds > 0, seconds <= TimeInterval(longest) else { continue }
             guard includes(event) else { continue }
-            guard !fired.contains(key(event)) else { continue }
-            due.append(event)
+
+            for lead in leads where seconds <= TimeInterval(lead) {
+                let marker = key(event, lead)
+                guard !fired.contains(marker) else { continue }
+                fired.insert(marker)
+                if TimeInterval(lead) - seconds <= catchUpTolerance {
+                    due.append((spokenName(event), lead))
+                }
+            }
         }
+        if fired.count > 1000 { fired.removeAll() }   // a long uptime, not a leak
         guard !due.isEmpty else { return }
 
-        for event in due { fired.insert(key(event)) }
-        if fired.count > 500 { fired.removeAll() }   // a long uptime, not a leak
-
-        announce(due.map { spokenName($0) })
+        // If two lead times land in the same tick — a block 5 minutes out when
+        // 5m and 10m are both set, say — the nearer one is the honest number.
+        guard let nearest = due.map({ $0.lead }).min() else { return }
+        announce(due.filter { $0.lead == nearest }.map { $0.name }, lead: nearest)
     }
 
     /// Everything before the first pipe: "Focus Work | Learn" is spoken as
@@ -461,8 +515,8 @@ enum Alerts {
 
     /// Sound first, then speech: a chime under a sentence makes both harder to
     /// make out.
-    private static func announce(_ names: [String]) {
-        let phrase = "\(leadPhrase()) before \(list(names))"
+    private static func announce(_ names: [String], lead: Int) {
+        let phrase = "\(leadPhrase(lead)) before \(list(names))"
 
         if playsSound { play(soundName) }
 
@@ -474,7 +528,7 @@ enum Alerts {
             synthesizer.speak(utterance)
         }
 
-        postBanner(title: "Starting in \(leadPhrase())", body: list(names))
+        postBanner(title: "Starting in \(leadPhrase(lead))", body: list(names))
     }
 
     /// "A", "A and B", "A, B and C" — spoken, so no Oxford comma.
@@ -526,7 +580,8 @@ enum Alerts {
 
     /// "Test Alert Now" — exactly what a real alert does, on a made-up block.
     static func test() {
-        let saidLead = lead > 0 ? leadPhrase() : "1 minute"
+        // The nearest lead time, since that's the one you'll hear most often.
+        let saidLead = leadPhrase(leads.min() ?? 60)
         let phrase = "\(saidLead) before Focus Work"
         if playsSound { play(soundName) }
         if speaks {
