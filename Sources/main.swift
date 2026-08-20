@@ -728,41 +728,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sub.autoenablesItems = false
 
         // --- 1. when ---
-        let when = NSMenuItem(title: "Alert Me", action: nil, keyEquivalent: "")
+        let when = NSMenuItem(
+            title: "Alert Me Before: \(Alerts.lead > 0 ? Alerts.leadPhrase() : "Off")",
+            action: nil, keyEquivalent: "")
         when.submenu = alertLeadMenu()
         sub.addItem(when)
-        addNote(Alerts.lead > 0
-                    ? "\(Alerts.leadPhrase()) before each block"
-                    : "Off — nothing will sound", to: sub)
 
         // --- 2. how ---
         sub.addItem(.separator())
-        let sound = NSMenuItem(title: "Play a Sound", action: #selector(toggleAlertSound),
-                               keyEquivalent: "")
-        sound.target = self
-        sound.state = Alerts.playsSound ? .on : .off
+        let sound = NSMenuItem(
+            title: "Alert Sound: \(Alerts.playsSound ? Alerts.soundName : "Off")",
+            action: nil, keyEquivalent: "")
+        sound.submenu = alertSoundMenu()
         sound.isEnabled = Alerts.lead > 0
+        sound.toolTip = Alerts.lead > 0 ? "Choosing a sound plays it" : "Choose a lead time first"
         sub.addItem(sound)
 
-        let chosen = NSMenuItem(title: "Alert Sound: \(Alerts.soundName)",
-                                action: nil, keyEquivalent: "")
-        chosen.submenu = alertSoundMenu()
-        chosen.isEnabled = Alerts.lead > 0 && Alerts.playsSound
-        sub.addItem(chosen)
-
-        let speech = NSMenuItem(title: "Speak the Block Name", action: #selector(toggleAlertSpeech),
-                                keyEquivalent: "")
-        speech.target = self
-        speech.state = Alerts.speaks ? .on : .off
-        speech.isEnabled = Alerts.lead > 0
-        speech.toolTip = Alerts.lead > 0
+        let voice = NSMenuItem(title: "Voice Sound: \(Alerts.voiceLabel)",
+                               action: nil, keyEquivalent: "")
+        voice.submenu = alertVoiceMenu()
+        voice.isEnabled = Alerts.lead > 0
+        voice.toolTip = Alerts.lead > 0
             ? "Says “\(Alerts.leadPhrase()) before Focus Work”"
             : "Choose a lead time first"
-        sub.addItem(speech)
-
-        let voice = NSMenuItem(title: "Voice: \(Alerts.voiceTitle)", action: nil, keyEquivalent: "")
-        voice.submenu = alertVoiceMenu()
-        voice.isEnabled = Alerts.lead > 0 && Alerts.speaks
         sub.addItem(voice)
 
         // --- 3. which blocks ---
@@ -816,36 +804,82 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return sub
     }
 
-    /// The ten system sounds. Picking one plays it, so you can hear it before
-    /// committing to it.
+    /// Off, then every sound macOS ships, then anything you've added yourself.
+    /// Picking one plays it, so you can hear it before committing.
     private func alertSoundMenu() -> NSMenu {
         let sub = NSMenu()
         sub.autoenablesItems = false
-        for name in Alerts.sounds {
+
+        let off = NSMenuItem(title: "Off", action: #selector(chooseAlertSound(_:)), keyEquivalent: "")
+        off.target = self
+        off.representedObject = ""
+        off.state = Alerts.playsSound ? .off : .on
+        sub.addItem(off)
+        sub.addItem(.separator())
+
+        let systemSounds = Alerts.sounds.filter { !Alerts.isCustomSound($0) }
+        let yours = Alerts.sounds.filter { Alerts.isCustomSound($0) }
+
+        for name in systemSounds {
             let item = NSMenuItem(title: name, action: #selector(chooseAlertSound(_:)),
                                   keyEquivalent: "")
             item.target = self
             item.representedObject = name
-            item.state = Alerts.soundName == name ? .on : .off
+            item.state = (Alerts.playsSound && Alerts.soundName == name) ? .on : .off
             sub.addItem(item)
         }
-        addNote("Choosing one plays it", to: sub)
+
+        if !yours.isEmpty {
+            sub.addItem(.separator())
+            for name in yours {
+                let item = NSMenuItem(title: name, action: #selector(chooseAlertSound(_:)),
+                                      keyEquivalent: "")
+                item.target = self
+                item.representedObject = name
+                item.state = (Alerts.playsSound && Alerts.soundName == name) ? .on : .off
+                item.toolTip = "Your own sound, from ~/Library/Sounds"
+                sub.addItem(item)
+            }
+        }
+
+        sub.addItem(.separator())
+        add("Custom Sound…", #selector(importAlertSound), to: sub)
+        addNote("macOS ships \(systemSounds.count); add your own for more", to: sub)
         return sub
     }
 
-    /// Two accents, two genders.
+    /// Off, four accents, and a robot. Anything the Mac hasn't got installed is
+    /// shown as unavailable rather than offered and then staying silent.
     private func alertVoiceMenu() -> NSMenu {
         let sub = NSMenu()
         sub.autoenablesItems = false
-        for voice in Alerts.voices {
-            let item = NSMenuItem(title: voice.title, action: #selector(chooseAlertVoice(_:)),
-                                  keyEquivalent: "")
+
+        let off = NSMenuItem(title: "Off", action: #selector(chooseAlertVoice(_:)), keyEquivalent: "")
+        off.target = self
+        off.representedObject = ""
+        off.state = Alerts.speaks ? .off : .on
+        sub.addItem(off)
+        sub.addItem(.separator())
+
+        for option in Alerts.voiceOptions {
+            guard let name = Alerts.voiceName(for: option) else {
+                let missing = NSMenuItem(title: "\(option.label) — not installed",
+                                         action: nil, keyEquivalent: "")
+                missing.isEnabled = false
+                missing.toolTip = "Add it in System Settings › Accessibility › Spoken Content › "
+                    + "System Voice › Manage Voices"
+                sub.addItem(missing)
+                continue
+            }
+            let item = NSMenuItem(title: "\(option.label) — \(name)",
+                                  action: #selector(chooseAlertVoice(_:)), keyEquivalent: "")
             item.target = self
-            item.representedObject = voice.key
-            item.state = Alerts.voiceKey == voice.key ? .on : .off
+            item.representedObject = option.key
+            item.state = (Alerts.speaks && Alerts.voiceKey == option.key) ? .on : .off
             sub.addItem(item)
         }
-        addNote("Choosing one speaks a sample", to: sub)
+
+        addNote("Siri's voice is private to macOS, so it can't be used here", to: sub)
         return sub
     }
 
@@ -1333,28 +1367,65 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Alerts.requestNotificationPermissionIfNeeded()
     }
 
-    @objc private func toggleAlertSound() {
-        Alerts.setPlaysSound(!Alerts.playsSound)
-        if Alerts.playsSound { Alerts.play(Alerts.soundName) }
-        Alerts.requestNotificationPermissionIfNeeded()
-    }
-
-    @objc private func toggleAlertSpeech() {
-        Alerts.setSpeaks(!Alerts.speaks)
-        if Alerts.speaks { Alerts.test() }
-        Alerts.requestNotificationPermissionIfNeeded()
-    }
-
+    /// An empty string means Off; anything else is a sound name.
     @objc private func chooseAlertSound(_ sender: NSMenuItem) {
         guard let name = sender.representedObject as? String else { return }
+        guard !name.isEmpty else {
+            Alerts.setPlaysSound(false)
+            return
+        }
+        Alerts.setPlaysSound(true)
         Alerts.setSoundName(name)
         Alerts.play(name)
+        Alerts.requestNotificationPermissionIfNeeded()
     }
 
+    /// Copies a sound of your own into ~/Library/Sounds, where macOS can find it
+    /// by name from then on.
+    @objc private func importAlertSound() {
+        menu.cancelTracking()
+        NSApp.activate(ignoringOtherApps: true)
+
+        let panel = NSOpenPanel()
+        panel.title = "Choose an Alert Sound"
+        panel.prompt = "Use Sound"
+        // Anything NSSound can open. `audio` alone would also allow formats it
+        // can't play, and a sound that copies in but stays silent is worse than
+        // one that's refused up front.
+        panel.allowedContentTypes = [.aiff, .wav, .mp3, .mpeg4Audio]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.level = .modalPanel
+        panel.center()
+        panel.orderFrontRegardless()
+        panel.makeKeyAndOrderFront(nil)
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let result = Alerts.importSound(from: url)
+        if let name = result.name {
+            Alerts.play(name)
+            Alerts.requestNotificationPermissionIfNeeded()
+        } else if let problem = result.problem {
+            let alert = NSAlert()
+            alert.messageText = "Couldn't use that sound"
+            alert.informativeText = problem
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+        }
+    }
+
+    /// An empty string means Off; anything else is a voice key.
     @objc private func chooseAlertVoice(_ sender: NSMenuItem) {
         guard let key = sender.representedObject as? String else { return }
+        guard !key.isEmpty else {
+            Alerts.setSpeaks(false)
+            return
+        }
+        Alerts.setSpeaks(true)
         Alerts.setVoiceKey(key)
         Alerts.test()
+        Alerts.requestNotificationPermissionIfNeeded()
     }
 
     @objc private func chooseAllAlertCategories() {

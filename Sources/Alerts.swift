@@ -45,13 +45,48 @@ enum Alerts {
     static func setPlaysSound(_ on: Bool) { UserDefaults.standard.set(on, forKey: "alertSound") }
     static func setSpeaks(_ on: Bool) { UserDefaults.standard.set(on, forKey: "alertSpeech") }
 
-    /// Ten of the sounds macOS already ships in /System/Library/Sounds, quietest
-    /// first. Nothing is bundled with the app, and a name that no longer exists
-    /// simply falls back to the system beep.
-    static let sounds = [
-        "Tink", "Pop", "Bottle", "Blow", "Purr",
-        "Ping", "Glass", "Sosumi", "Submarine", "Hero"
-    ]
+    /// Every sound macOS ships in /System/Library/Sounds, ordered quietest
+    /// first, plus anything the user has dropped into `~/Library/Sounds` — which
+    /// is also where **Custom Sound…** copies a file to. Nothing is bundled with
+    /// the app, and a name that no longer resolves falls back to the system beep.
+    ///
+    /// The system list is fourteen: that's all Apple provides. The list gets past
+    /// that only with sounds you add yourself.
+    static var sounds: [String] {
+        let systemOrder = ["Tink", "Pop", "Bottle", "Blow", "Purr", "Morse",
+                           "Ping", "Glass", "Frog", "Funk", "Sosumi",
+                           "Submarine", "Hero", "Basso"]
+        var names = systemOrder.filter { NSSound(named: NSSound.Name($0)) != nil }
+        var extras = Set(customSoundNames)
+        extras.subtract(names)
+        return names + extras.sorted()
+    }
+
+    /// Where a custom sound is kept, so `NSSound(named:)` can find it by name for
+    /// good — the same folder macOS itself scans.
+    static var userSoundsDirectory: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Sounds")
+    }
+
+    /// Sound files in ~/Library/Sounds and /Library/Sounds, by bare name.
+    private static var customSoundNames: [String] {
+        let shared = URL(fileURLWithPath: "/Library/Sounds")
+        var found: [String] = []
+        for folder in [userSoundsDirectory, shared] {
+            let files = (try? FileManager.default.contentsOfDirectory(at: folder,
+                                                                     includingPropertiesForKeys: nil)) ?? []
+            for file in files where !file.lastPathComponent.hasPrefix(".") {
+                let name = file.deletingPathExtension().lastPathComponent
+                if NSSound(named: NSSound.Name(name)) != nil { found.append(name) }
+            }
+        }
+        return found
+    }
+
+    /// Formats NSSound can open. Anything else is refused rather than copied in
+    /// and then silently failing to play.
+    static let soundFileTypes = ["aiff", "aif", "wav", "caf", "m4a", "mp3", "aac"]
 
     static let defaultSound = "Ping"
 
@@ -63,36 +98,74 @@ enum Alerts {
         UserDefaults.standard.set(name, forKey: "alertSoundName")
     }
 
-    // MARK: - Voices
-
-    /// Four voices: American and British, male and female. Each is resolved by
-    /// name first, then by language and gender, so a Mac missing one particular
-    /// voice still speaks in the right accent rather than falling silent.
-    struct Voice {
-        let key: String
-        let title: String
-        let language: String
-        let gender: AVSpeechSynthesisVoiceGender
-        /// Preferred identifiers, best first.
-        let identifiers: [String]
+    /// Copies a chosen file into ~/Library/Sounds and selects it. Returns the
+    /// name it can be played by, or nil with a reason.
+    static func importSound(from source: URL) -> (name: String?, problem: String?) {
+        guard soundFileTypes.contains(source.pathExtension.lowercased()) else {
+            return (nil, "“\(source.lastPathComponent)” isn't an audio file macOS can play as an "
+                       + "alert. Try AIFF, WAV, CAF, M4A or MP3.")
+        }
+        let fm = FileManager.default
+        let destination = userSoundsDirectory.appendingPathComponent(source.lastPathComponent)
+        do {
+            try fm.createDirectory(at: userSoundsDirectory, withIntermediateDirectories: true)
+            if fm.fileExists(atPath: destination.path) { try fm.removeItem(at: destination) }
+            try fm.copyItem(at: source, to: destination)
+        } catch {
+            return (nil, "Couldn't copy it into ~/Library/Sounds — \(error.localizedDescription)")
+        }
+        let name = destination.deletingPathExtension().lastPathComponent
+        guard NSSound(named: NSSound.Name(name)) != nil else {
+            try? fm.removeItem(at: destination)
+            return (nil, "macOS couldn't open “\(source.lastPathComponent)” as a sound.")
+        }
+        setSoundName(name)
+        setPlaysSound(true)
+        return (name, nil)
     }
 
-    static let voices: [Voice] = [
-        Voice(key: "en-US-female", title: "American · female", language: "en-US", gender: .female,
-              identifiers: ["com.apple.voice.compact.en-US.Samantha",
-                            "com.apple.speech.synthesis.voice.samantha"]),
-        Voice(key: "en-US-male", title: "American · male", language: "en-US", gender: .male,
-              identifiers: ["com.apple.speech.synthesis.voice.Alex",
-                            "com.apple.voice.compact.en-US.Aaron"]),
-        Voice(key: "en-GB-female", title: "British · female", language: "en-GB", gender: .female,
-              identifiers: ["com.apple.voice.compact.en-GB.Serena",
-                            "com.apple.voice.compact.en-GB.Kate"]),
-        Voice(key: "en-GB-male", title: "British · male", language: "en-GB", gender: .male,
-              identifiers: ["com.apple.voice.compact.en-GB.Daniel",
-                            "com.apple.voice.compact.en-GB.Oliver"])
+    /// True for a sound that came from the user rather than from macOS, so the
+    /// menu can offer to forget it.
+    static func isCustomSound(_ name: String) -> Bool {
+        FileManager.default.fileExists(atPath: userSoundsDirectory.path)
+            && soundFileTypes.contains { ext in
+                FileManager.default.fileExists(
+                    atPath: userSoundsDirectory.appendingPathComponent("\(name).\(ext)").path)
+            }
+    }
+
+    // MARK: - Voices
+
+    /// Four accents and genders, plus one robot. Every entry is resolved against
+    /// the voices actually installed, so nothing is offered that would stay
+    /// silent — a slot with nothing behind it is shown as unavailable instead.
+    ///
+    /// Siri's own voice is not among them: macOS keeps it private, and
+    /// `AVSpeechSynthesisVoice.speechVoices()` never returns it to an app.
+    struct VoiceOption {
+        let key: String
+        let label: String
+        let language: String?
+        let gender: AVSpeechSynthesisVoiceGender?
+        /// Preferred voices, best first, matched by name or identifier suffix.
+        let preferred: [String]
+    }
+
+    static let voiceOptions: [VoiceOption] = [
+        VoiceOption(key: "en-US-male", label: "American · male", language: "en-US", gender: .male,
+                    preferred: ["Alex", "Aaron", "Fred"]),
+        VoiceOption(key: "en-GB-male", label: "British · male", language: "en-GB", gender: .male,
+                    preferred: ["Daniel", "Oliver", "Arthur"]),
+        VoiceOption(key: "en-US-female", label: "American · female", language: "en-US", gender: .female,
+                    preferred: ["Samantha", "Allison", "Ava", "Susan", "Nicky", "Joelle"]),
+        VoiceOption(key: "en-GB-female", label: "British · female", language: "en-GB", gender: .female,
+                    preferred: ["Kate", "Serena", "Stephanie", "Martha", "Fiona"]),
+        // The closest macOS comes to a Jarvis: a deliberately synthetic voice.
+        VoiceOption(key: "robot", label: "Robot", language: nil, gender: nil,
+                    preferred: ["Zarvox", "Trinoids", "Ralph", "Fred"])
     ]
 
-    static let defaultVoiceKey = "en-US-female"
+    static let defaultVoiceKey = "en-US-male"
 
     static var voiceKey: String {
         UserDefaults.standard.string(forKey: "alertVoice") ?? defaultVoiceKey
@@ -102,26 +175,41 @@ enum Alerts {
         UserDefaults.standard.set(key, forKey: "alertVoice")
     }
 
-    static var voiceTitle: String {
-        voices.first { $0.key == voiceKey }?.title ?? "System voice"
+    /// The installed voice behind an option, or nil when the Mac hasn't got one.
+    static func installedVoice(for option: VoiceOption) -> AVSpeechSynthesisVoice? {
+        let installed = AVSpeechSynthesisVoice.speechVoices()
+
+        for wanted in option.preferred {
+            if let match = installed.first(where: {
+                $0.name.caseInsensitiveCompare(wanted) == .orderedSame
+                    || $0.identifier.hasSuffix(".\(wanted)")
+            }) { return match }
+        }
+        guard let language = option.language else { return nil }
+        if let gender = option.gender,
+           let match = installed.first(where: { $0.language == language && $0.gender == gender }) {
+            return match
+        }
+        return installed.first { $0.language == language }
     }
 
-    /// The best available match for the chosen voice, or nil to let the system
-    /// pick its own.
+    /// The name of the voice that will actually speak, e.g. "Daniel", so the menu
+    /// can show what you're getting rather than just the accent.
+    static func voiceName(for option: VoiceOption) -> String? {
+        installedVoice(for: option)?.name
+    }
+
+    static var voiceLabel: String {
+        guard speaks, let option = voiceOptions.first(where: { $0.key == voiceKey }) else {
+            return "Off"
+        }
+        if let name = voiceName(for: option) { return "\(option.label) — \(name)" }
+        return option.label
+    }
+
     private static func resolvedVoice() -> AVSpeechSynthesisVoice? {
-        guard let wanted = voices.first(where: { $0.key == voiceKey }) ?? voices.first else {
-            return nil
-        }
-        for identifier in wanted.identifiers {
-            if let voice = AVSpeechSynthesisVoice(identifier: identifier) { return voice }
-        }
-        let installed = AVSpeechSynthesisVoice.speechVoices()
-        if let match = installed.first(where: {
-            $0.language == wanted.language && $0.gender == wanted.gender
-        }) { return match }
-        // Right accent, any gender, before giving up on the accent entirely.
-        if let match = installed.first(where: { $0.language == wanted.language }) { return match }
-        return AVSpeechSynthesisVoice(language: wanted.language)
+        guard let option = voiceOptions.first(where: { $0.key == voiceKey }) else { return nil }
+        return installedVoice(for: option)
     }
 
     /// True when an alert can actually happen: a lead time, and at least one way

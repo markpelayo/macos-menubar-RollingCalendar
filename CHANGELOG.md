@@ -10,9 +10,10 @@ All notable changes to this project are documented here. The format follows
 
 - **Time Block Alerts** — a system sound, the block name spoken aloud, or both, a chosen time before
   a block starts. Off by default. The lead time is 1 minute, 5 minutes or a custom value; the sound
-  is one of ten macOS already ships, so nothing is bundled; speech is `AVSpeechSynthesizer` with
-  American and British voices in both genders, each resolved by name and then by language and gender
-  so a missing voice still keeps the accent. Alerts can be limited to chosen categories, fire once
+  is any of the fourteen macOS ships, or one of your own copied into `~/Library/Sounds` by
+  **Custom Sound…**; speech is `AVSpeechSynthesizer` with American and British voices in both
+  genders plus a robot, each shown with the voice that will actually speak and marked *not installed*
+  when the Mac hasn't got one. Siri's voice is private to macOS and can't be offered. Alerts can be limited to chosen categories, fire once
   per block, and skip all-day events. A Notification Center banner is posted too where macOS allows
   it, as a bonus rather than the mechanism.
 - **Run at Startup** — off, on, or on after a wait of 5 to 60 seconds. Off by default, since putting
