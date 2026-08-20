@@ -362,7 +362,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         _ = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
-        ) { [weak self] _ in self?.fetch() }
+        ) { [weak self] _ in
+            self?.fetch()
+            // Cheap insurance: a voice or sound may have been added while asleep.
+            Alerts.refreshVoices()
+            Alerts.refreshSounds()
+        }
 
         fetch()
     }
@@ -817,8 +822,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sub.addItem(off)
         sub.addItem(.separator())
 
-        let systemSounds = Alerts.sounds.filter { !Alerts.isCustomSound($0) }
-        let yours = Alerts.sounds.filter { Alerts.isCustomSound($0) }
+        let all = Alerts.sounds
+        let systemSounds = all.filter { !Alerts.isCustomSound($0) }
+        let yours = all.filter { Alerts.isCustomSound($0) }
 
         for name in systemSounds {
             let item = NSMenuItem(title: name, action: #selector(chooseAlertSound(_:)),
@@ -1499,6 +1505,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Straight to the pane where Apple's natural voices are downloaded.
     @objc private func openVoiceSettings() {
         guard let url = Alerts.voiceSettingsURL else { return }
+        // Whatever is downloaded there should show up next time the menu opens.
+        Alerts.refreshVoices()
         NSWorkspace.shared.open(url)
     }
 

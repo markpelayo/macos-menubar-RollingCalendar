@@ -81,7 +81,9 @@ enum Alerts {
     /// "Time Block Alerts: 5m | Voice — Daniel".
     static var summary: String {
         guard isEnabled else { return "Time Block Alerts" }
-        let how = playsSound ? "Sound — \(soundName)" : "Voice — \(voiceShortName)"
+        // `voiceLabel` is enough for the summary; resolving the voice object
+        // here would mean a second lookup on every menu click.
+        let how = playsSound ? "Sound — \(soundName)" : "Voice — \(voiceLabel)"
         var parts = [leadShorthand, how]
         if !isEveryCategory { parts.append("\(selectedCategories.count) categories") }
         return "Time Block Alerts: " + parts.joined(separator: " | ")
@@ -94,15 +96,28 @@ enum Alerts {
     ///
     /// The system list is fourteen: that's all Apple provides. The list gets past
     /// that only with sounds you add yourself.
-    static var sounds: [String] {
+    static var sounds: [String] { soundList.system + soundList.custom }
+
+    /// Worked out once and kept. Building it means a `NSSound(named:)` probe per
+    /// candidate plus two directory scans, and the menu asks for it several times
+    /// per click — doing that every time is what makes a menu feel slow.
+    private static var soundCache: (system: [String], custom: [String])?
+
+    private static var soundList: (system: [String], custom: [String]) {
+        if let soundCache { return soundCache }
         let systemOrder = ["Tink", "Pop", "Bottle", "Blow", "Purr", "Morse",
                            "Ping", "Glass", "Frog", "Funk", "Sosumi",
                            "Submarine", "Hero", "Basso"]
-        var names = systemOrder.filter { NSSound(named: NSSound.Name($0)) != nil }
+        let system = systemOrder.filter { NSSound(named: NSSound.Name($0)) != nil }
         var extras = Set(customSoundNames)
-        extras.subtract(names)
-        return names + extras.sorted()
+        extras.subtract(system)
+        let list = (system, extras.sorted())
+        soundCache = list
+        return list
     }
+
+    /// After importing one of your own, or if the folder is edited by hand.
+    static func refreshSounds() { soundCache = nil }
 
     /// Where a custom sound is kept, so `NSSound(named:)` can find it by name for
     /// good — the same folder macOS itself scans.
@@ -161,18 +176,15 @@ enum Alerts {
             try? fm.removeItem(at: destination)
             return (nil, "macOS couldn't open “\(source.lastPathComponent)” as a sound.")
         }
+        refreshSounds()      // the folder just changed
         chooseSound(name)
         return (name, nil)
     }
 
-    /// True for a sound that came from the user rather than from macOS, so the
-    /// menu can offer to forget it.
+    /// True for a sound that came from the user rather than from macOS. Answered
+    /// from the cached list rather than by touching the disk.
     static func isCustomSound(_ name: String) -> Bool {
-        FileManager.default.fileExists(atPath: userSoundsDirectory.path)
-            && soundFileTypes.contains { ext in
-                FileManager.default.fileExists(
-                    atPath: userSoundsDirectory.appendingPathComponent("\(name).\(ext)").path)
-            }
+        soundList.custom.contains(name)
     }
 
     // MARK: - Voices
@@ -183,6 +195,23 @@ enum Alerts {
     ///
     /// Siri's own voice is not among them: macOS keeps it private, and
     /// `AVSpeechSynthesisVoice.speechVoices()` never returns it to an app.
+    /// `AVSpeechSynthesisVoice.speechVoices()` is not cheap — it enumerates every
+    /// installed voice and reads each one's metadata. The menu resolves a dozen
+    /// or more voices per click, so the list is fetched once and kept; it only
+    /// changes when a voice is downloaded or removed, which is what
+    /// `refreshVoices()` is for.
+    private static var voiceCache: [AVSpeechSynthesisVoice]?
+
+    static var installedVoices: [AVSpeechSynthesisVoice] {
+        if let voiceCache { return voiceCache }
+        let list = AVSpeechSynthesisVoice.speechVoices()
+        voiceCache = list
+        return list
+    }
+
+    /// After a trip to Manage Voices, or on waking, in case one was added.
+    static func refreshVoices() { voiceCache = nil }
+
     struct VoiceOption {
         let key: String
         let label: String
@@ -233,7 +262,7 @@ enum Alerts {
     /// when it hasn't been downloaded. Compact voices of the same name don't
     /// count — the whole point is the neural one.
     static func installedPremium(_ wanted: PremiumVoice) -> AVSpeechSynthesisVoice? {
-        AVSpeechSynthesisVoice.speechVoices().first {
+        installedVoices.first {
             $0.language == wanted.language
                 && $0.quality != .default
                 && $0.name.localizedCaseInsensitiveContains(wanted.name)
@@ -252,7 +281,7 @@ enum Alerts {
 
     /// Every installed Enhanced or Premium English voice.
     static var naturalVoices: [(key: String, label: String)] {
-        AVSpeechSynthesisVoice.speechVoices()
+        installedVoices
             .filter { $0.language.hasPrefix("en") && $0.quality != .default }
             .sorted { ($0.name, $0.language) < ($1.name, $1.language) }
             .map { voice in
@@ -296,7 +325,7 @@ enum Alerts {
 
     /// The installed voice behind an option, or nil when the Mac hasn't got one.
     static func installedVoice(for option: VoiceOption) -> AVSpeechSynthesisVoice? {
-        let installed = AVSpeechSynthesisVoice.speechVoices()
+        let installed = installedVoices
 
         for wanted in option.preferred {
             if let match = installed.first(where: {
