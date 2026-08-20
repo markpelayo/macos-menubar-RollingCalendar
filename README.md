@@ -3,11 +3,11 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform: macOS 13+](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey)](#quick-start)
 [![Status: in development](https://img.shields.io/badge/status-in%20development-orange)](#known-limitations)
-[![Release: v1.2.0](https://img.shields.io/badge/release-v1.2.0-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
+[![Release: v1.3.0](https://img.shields.io/badge/release-v1.3.0-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
 
 A macOS menu bar app that draws today's calendar as a horizontal timeline scrolling past a fixed "now" marker. Instead of asking *what time is my next thing*, you glance up and see where you are.
 
-> **Status: in development.** Working and usable — [v1.2.0](CHANGELOG.md) is the current release — but rough edges remain, see [Known limitations](#known-limitations). Behaviour, defaults and stored preferences may change without migration.
+> **Status: in development.** Working and usable — [v1.3.0](CHANGELOG.md) is the current release — but rough edges remain, see [Known limitations](#known-limitations). Behaviour, defaults and stored preferences may change without migration.
 
 ## The UI
 
@@ -318,6 +318,40 @@ The check runs on the same one-second tick as the redraw, and each block is reme
 
 A Notification Center **banner** is also posted, if macOS has granted permission. It's a bonus rather than the mechanism: this app is built locally rather than notarised, so that permission may never be granted — the sound and the speech don't depend on it.
 
+## Westminster Chime
+
+The tune people mean by "Big Ben", on your own Mac's clock. It's separate from Time Block Alerts on purpose: it marks the hour, not your calendar, and doesn't care what's in it.
+
+```
+✓ Westminster Chime: Every quarter hour ▸
+                        Off
+                        On the hour
+                      ✓ Every quarter hour
+                        ─────────────────
+                      ✓ Strike the Hour Count
+                        Volume: 50% ▸        25% · 50% · 75% · 100%
+                        ─────────────────
+                        Hear It ▸            Quarter past · Half past · Quarter to · The hour
+                        Stop Ringing
+```
+
+**What the real clock does.** Four quarter bells play five four-note *changes* — rearrangements of the same four notes, G♯, F♯, E and B — and the Great Bell, the one actually named Big Ben, strikes the hour afterwards:
+
+| Time | Changes played |
+|---|---|
+| Quarter past | 1 |
+| Half past | 2, 3 |
+| Quarter to | 4, 5, 1 |
+| On the hour | 2, 3, 4, 5 — then the hour struck |
+
+The hour is counted on a twelve-hour clock, so one o'clock is one blow and midday is twelve. That's exactly what this does, including the count.
+
+**It's synthesised, not sampled.** A recording of Big Ben is someone's copyright; the tune, written in 1793, is not. So the bells are built out of sine partials — a bell is a fundamental plus a stack of inharmonic overtones, the hum below it and the tierce a minor third above, each fading at its own rate. Nothing is bundled with the app and nothing is downloaded. It won't be mistaken for the Elizabeth Tower, but it is unmistakably the tune.
+
+Timing is a little brisker than the real clock — notes 1.2 s apart, strikes 4 s — so midday takes about 70 seconds rather than two minutes. **Strike the Hour Count** off leaves just the tune, which is a good deal less imposing at midnight. The audio is rendered on a background thread when the quarter comes round, played through `AVAudioEngine`, and released when the last note dies away; the hardware is let go with it.
+
+A quarter rings once, and only within five seconds of its moment — waking a sleeping Mac at twenty past shouldn't set the bells off for the quarter it slept through.
+
 ## Run at Startup
 
 **Off until you ask for it** — putting something into your login sequence is your call, so nothing is written to `~/Library/LaunchAgents` until you switch it on. A wait is worth choosing: at login the Mac is starting everything at once, and the strip isn't what you need in the first few seconds of that. It sits in its own block below Refresh Now, ticked whenever it will launch at login — with or without a wait. The item shows the current setting, so *Run at Startup: After 20 s* tells you where you stand without opening the submenu:
@@ -367,6 +401,7 @@ Most of it is in the menu — click the strip:
 | **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
 | **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 360 pt, about 47 characters) |
 | **Restore Defaults** | Back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Greyed out when nothing has been changed |
+| **Westminster Chime ▸** | The hour, or every quarter, on synthesised bells — with the hour counted out (**off** by default) |
 | **Time Block Alerts ▸** | A sound or the block name spoken, at one or more lead times before a block starts, for the categories you choose (**off** by default) |
 | **Refresh Now (⌘R)** | Re-reads the feed immediately instead of waiting for the five-minute timer |
 | **Run at Startup ▸** | Off, on, or on after a wait of 5–60 s (**off** by default) |
@@ -462,7 +497,7 @@ carries source only — no app bundle, for the notarisation reason above — so 
 version means checking out its tag and running `./build.sh`:
 
 ```bash
-git checkout v1.2.0
+git checkout v1.3.0
 ./build.sh
 ```
 

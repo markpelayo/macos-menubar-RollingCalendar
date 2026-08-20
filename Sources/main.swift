@@ -357,6 +357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // Same tick as the redraw: the clock is already being read, and a
             // second's resolution is plenty for a warning measured in minutes.
             Alerts.check(self.menuEvents, now: Clock.now)
+            Westminster.check(now: Clock.now)
         }
         fetchTimer = Timer.scheduledTimer(withTimeInterval: Config.refetchInterval, repeats: true) { [weak self] _ in
             self?.fetch()
@@ -708,6 +709,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             : "Off — choose when to be told, then how"
         menu.addItem(alerts)
 
+        let chime = NSMenuItem(title: Westminster.menuTitle, action: nil, keyEquivalent: "")
+        chime.submenu = chimeMenu()
+        chime.state = Westminster.mode == .off ? .off : .on
+        chime.toolTip = "The Westminster Quarters — the tune Big Ben plays"
+        menu.addItem(chime)
+
         menu.addItem(.separator())
 
         // --- Reading the feed ---
@@ -972,6 +979,84 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 item.state = (Alerts.speaks && Alerts.voiceKey == voice.key) ? .on : .off
                 sub.addItem(item)
             }
+        }
+        return sub
+    }
+
+    /// The hour chime. Separate from Time Block Alerts on purpose: it marks the
+    /// clock, not your calendar, and doesn't care what's in it.
+    private func chimeMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        for mode in [Westminster.Mode.off, .hourly, .quarterly] {
+            let item = NSMenuItem(title: mode.title, action: #selector(chooseChimeMode(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = mode.rawValue
+            item.state = Westminster.mode == mode ? .on : .off
+            sub.addItem(item)
+        }
+
+        sub.addItem(.separator())
+        let strikes = NSMenuItem(title: "Strike the Hour Count",
+                                 action: #selector(toggleChimeStrikes), keyEquivalent: "")
+        strikes.target = self
+        strikes.state = Westminster.strikesHour ? .on : .off
+        strikes.isEnabled = Westminster.mode != .off
+        strikes.toolTip = "After the hour's chime, the great bell counts the hour — twelve blows "
+            + "at noon and midnight"
+        sub.addItem(strikes)
+
+        let volume = NSMenuItem(title: "Volume: \(Int(Westminster.volume * 100))%",
+                                action: nil, keyEquivalent: "")
+        volume.submenu = chimeVolumeMenu()
+        volume.isEnabled = Westminster.mode != .off
+        sub.addItem(volume)
+
+        sub.addItem(.separator())
+        let hear = NSMenuItem(title: "Hear It", action: nil, keyEquivalent: "")
+        hear.submenu = chimePreviewMenu()
+        sub.addItem(hear)
+
+        let stop = NSMenuItem(title: "Stop Ringing", action: #selector(stopChime), keyEquivalent: "")
+        stop.target = self
+        stop.isEnabled = Westminster.isRinging
+        sub.addItem(stop)
+
+        addNote("The Westminster Quarters, synthesised — no recordings, nothing to download",
+                to: sub)
+        return sub
+    }
+
+    private func chimeVolumeMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        for level in Westminster.volumeChoices {
+            let item = NSMenuItem(title: "\(Int(level * 100))%",
+                                  action: #selector(chooseChimeVolume(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = level
+            item.state = abs(Westminster.volume - level) < 0.01 ? .on : .off
+            sub.addItem(item)
+        }
+        return sub
+    }
+
+    /// Each quarter on demand, since the hour is the only one most people have
+    /// heard and the others are half the tune.
+    private func chimePreviewMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+        for quarter in Westminster.Quarter.allCases {
+            let item = NSMenuItem(title: quarter.title, action: #selector(previewChime(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = quarter.title
+            if quarter == .hour {
+                item.toolTip = "Chime, then the current hour counted out"
+            }
+            sub.addItem(item)
         }
         return sub
     }
@@ -1565,6 +1650,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func testAlert() { Alerts.test() }
+
+    @objc private func chooseChimeMode(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let mode = Westminster.Mode(rawValue: raw) else { return }
+        Westminster.setMode(mode)
+        if mode == .off { Westminster.stop() }
+    }
+
+    @objc private func toggleChimeStrikes() {
+        Westminster.setStrikesHour(!Westminster.strikesHour)
+    }
+
+    @objc private func chooseChimeVolume(_ sender: NSMenuItem) {
+        guard let level = sender.representedObject as? Float else { return }
+        Westminster.setVolume(level)
+        Westminster.ring(.quarterPast)      // so you can hear what you picked
+    }
+
+    @objc private func previewChime(_ sender: NSMenuItem) {
+        guard let title = sender.representedObject as? String,
+              let quarter = Westminster.Quarter.allCases.first(where: { $0.title == title })
+        else { return }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = Config.displayTimeZone
+        let hour = calendar.component(.hour, from: Clock.now)
+        Westminster.ring(quarter, hour: hour % 12 == 0 ? 12 : hour % 12)
+    }
+
+    @objc private func stopChime() { Westminster.stop() }
 
     /// -1 is off, 0 is launch immediately, anything else is a wait in seconds.
     @objc private func chooseStartup(_ sender: NSMenuItem) {

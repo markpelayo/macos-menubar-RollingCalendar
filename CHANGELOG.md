@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-08-21
+
+### Added
+
+- **Westminster Chime** — the tune Big Ben plays, on the hour or every quarter, with the hour counted
+  out on the great bell afterwards. Off by default. It follows the real mechanism: five four-note
+  changes on the quarter bells, change 1 at quarter past, 2 and 3 at half past, 4, 5 and 1 at quarter
+  to, and 2, 3, 4, 5 on the hour before the strikes, counted on a twelve-hour clock.
+- The bells are **synthesised, not sampled** — additive synthesis of a bell's inharmonic partials, so
+  nothing is bundled and nothing is downloaded, and the 1793 tune is well out of copyright. Volume is
+  adjustable, the hour count can be switched off, and each quarter can be previewed from **Hear It**.
+- A quarter rings once and only within five seconds of its moment, so waking a sleeping Mac doesn't
+  set the bells off for a quarter it slept through. Audio is rendered off the main thread and the
+  buffer and the audio hardware are both released when the last note dies away.
+
 ## [1.2.0] — 2026-08-21
 
 ### Added
@@ -128,6 +143,7 @@ First public release.
 - Recurring events are handled for a common subset of RFC 5545 — `RRULE` with `FREQ`, `INTERVAL`,
   `COUNT`, `UNTIL`, `BYDAY`, plus `EXDATE` and `RECURRENCE-ID` overrides.
 
+[1.3.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.3.0
 [1.2.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.2.0
 [1.1.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.1.0
 [1.0.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.0.0
