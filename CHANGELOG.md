@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.3.0] — 2026-08-21
 
+### Changed
+
+- **Fewer allocations on the one-second tick.** The gutter labels were composed
+  twice per second — once to size the menu bar item, once to draw it — building
+  attributed strings and measuring text each time. They're now composed once and
+  kept until the second, the events, the settings or the appearance change.
+- **iCalendar dates are parsed by hand** rather than through `DateFormatter`. A
+  feed with a few hundred events was building an ICU formatter for every
+  DTSTART, DTEND, EXDATE and UNTIL in the file, several times an hour. Accepted
+  and rejected forms are unchanged, and out-of-range fields — month 13, 30
+  February — are still refused rather than quietly rolled forward.
+- `Calendar` and the four menu `DateFormatter`s are built once instead of per
+  call; the alert settings are read once per tick instead of once per event; the
+  announced-blocks set is pruned by age instead of being emptied wholesale.
+- The wake observer is now released, and the timers invalidated and the audio
+  engine stopped, on quit.
+
 ### Added
 
 - **Westminster Chime** — the tune Big Ben plays, on the hour or every quarter, with the hour counted

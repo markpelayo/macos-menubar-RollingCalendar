@@ -397,11 +397,6 @@ enum Alerts {
         return option.label
     }
 
-    /// Just the voice's own name, for the one-line summary on the parent item.
-    static var voiceShortName: String {
-        resolvedVoice()?.name ?? "system"
-    }
-
     private static func resolvedVoice() -> AVSpeechSynthesisVoice? {
         if voiceKey.hasPrefix("voice:") {
             let identifier = String(voiceKey.dropFirst("voice:".count))
@@ -448,17 +443,20 @@ enum Alerts {
         }
     }
 
-    static func includes(_ event: CalEvent) -> Bool {
-        let chosen = selectedCategories
-        guard !chosen.isEmpty else { return true }
-        return chosen.contains(event.category ?? uncategorized)
+    /// Takes the chosen set as an argument so a caller looping over events can
+    /// read the setting once rather than once per event.
+    static func includes(_ event: CalEvent,
+                         in chosen: Set<String> = Alerts.selectedCategories) -> Bool {
+        chosen.isEmpty || chosen.contains(event.category ?? uncategorized)
     }
 
     // MARK: - Firing
 
     /// Blocks already announced, so a one-second tick doesn't announce the same
-    /// one sixty times. Keyed by start time and title, and forgotten on relaunch.
-    private static var fired = Set<String>()
+    /// one sixty times. Keyed by start time, lead time and title; the value is
+    /// the block's start, so old entries can be dropped rather than the whole set
+    /// being thrown away. Forgotten on relaunch either way.
+    private static var fired: [String: Date] = [:]
     private static let synthesizer = AVSpeechSynthesizer()
     private static var askedForNotifications = false
 
@@ -480,23 +478,27 @@ enum Alerts {
         guard isEnabled else { return }
         let leads = self.leads
         guard let longest = leads.first else { return }
+        // Settings are read once per tick rather than once per event: this runs
+        // every second, and each read is a trip through UserDefaults.
+        let chosen = selectedCategories
+        let horizon = TimeInterval(longest)
 
         var due: [(name: String, lead: Int)] = []
         for event in events where !event.isAllDay {
             let seconds = event.start.timeIntervalSince(now)
-            guard seconds > 0, seconds <= TimeInterval(longest) else { continue }
-            guard includes(event) else { continue }
+            guard seconds > 0, seconds <= horizon else { continue }
+            guard includes(event, in: chosen) else { continue }
 
             for lead in leads where seconds <= TimeInterval(lead) {
                 let marker = key(event, lead)
-                guard !fired.contains(marker) else { continue }
-                fired.insert(marker)
+                guard fired[marker] == nil else { continue }
+                fired[marker] = event.start
                 if TimeInterval(lead) - seconds <= catchUpTolerance {
                     due.append((spokenName(event), lead))
                 }
             }
         }
-        if fired.count > 1000 { fired.removeAll() }   // a long uptime, not a leak
+        pruneAnnounced(before: now)
         guard !due.isEmpty else { return }
 
         // If two lead times land in the same tick — a block 5 minutes out when
@@ -541,13 +543,16 @@ enum Alerts {
         }
     }
 
+    /// Deliberately a fresh `NSSound` each time rather than a cached one: an
+    /// alert is rare, the object is small, and a reused instance has to be
+    /// stopped before it can replay — which is unreliable, and a silent alert is
+    /// the one failure that matters here.
     static func play(_ name: String) {
-        if let sound = NSSound(named: NSSound.Name(name)) {
-            sound.stop()          // in case it's still ringing from a preview
-            sound.play()
-        } else {
+        guard let sound = NSSound(named: NSSound.Name(name)) else {
             NSSound.beep()
+            return
         }
+        sound.play()
     }
 
     /// A Notification Center banner *if* the system allows it. This app is built
@@ -596,4 +601,23 @@ enum Alerts {
     /// Called when the lead time or the categories change, so a block that was
     /// skipped a moment ago can still be announced under the new settings.
     static func forgetAnnounced() { fired.removeAll() }
+
+    /// Blocks that started over an hour ago can never come due again. Rebuilding
+    /// the dictionary is cheap but this runs on the one-second tick, so it's done
+    /// at most once a minute and only when there's something to gain.
+    /// Stamped from the real clock, not `Clock.now`: a debug time set a week
+    /// ahead and then reset would otherwise leave the throttle in the future and
+    /// stop pruning for the rest of the launch.
+    private static var lastPrune = Date.distantPast
+
+    private static func pruneAnnounced(before now: Date) {
+        // A backstop, in case the throttle below never lets a prune through.
+        if fired.count > 5000 { fired.removeAll(); return }
+
+        let realNow = Date()
+        guard fired.count > 200, realNow.timeIntervalSince(lastPrune) > 60 else { return }
+        lastPrune = realNow
+        let cutoff = now.addingTimeInterval(-3600)
+        fired = fired.filter { $0.value > cutoff }
+    }
 }

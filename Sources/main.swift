@@ -289,6 +289,19 @@ enum Config {
 
     static var isSimulating: Bool { debugOffset != 0 }
 
+    /// A `Calendar` is not cheap to build, and the strip, the dropdown and the
+    /// chime all want one. Kept until the time zone it was built for changes.
+    private static var cachedCalendar: (zone: String, calendar: Calendar)?
+
+    static var calendar: Calendar {
+        let zone = displayTimeZone
+        if let cached = cachedCalendar, cached.zone == zone.identifier { return cached.calendar }
+        var fresh = Calendar(identifier: .gregorian)
+        fresh.timeZone = zone
+        cachedCalendar = (zone.identifier, fresh)
+        return fresh
+    }
+
     /// Stored as an offset rather than an absolute date, so the simulated clock
     /// keeps running instead of standing still.
     static func setDebugTime(_ date: Date) {
@@ -325,6 +338,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastFetch: Date?
     /// What the dropdown lists — one sleep-to-sleep cycle, not one calendar day.
     private var menuEvents: [CalEvent] = []
+
+    /// Held so it can be handed back on the way out, rather than left registered
+    /// against a dead object.
+    private var wakeObserver: NSObjectProtocol?
 
     /// The alert rows whose titles depend on the settings below them. Held onto
     /// so a toggle can update them without closing and rebuilding the menu.
@@ -370,7 +387,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         KeywordRules.seedSampleRulesIfFirstRun()
         LoginItem.syncOnLaunch()
 
-        _ = NSWorkspace.shared.notificationCenter.addObserver(
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
             self?.fetch()
@@ -415,6 +432,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.mainMenu = mainMenu
     }
 
+    /// Handing things back on the way out: the observer, the timers and the audio
+    /// engine. macOS would reclaim all of it anyway, but leaving a registered
+    /// observer pointing at a dying object is the kind of thing that bites later.
+    func applicationWillTerminate(_ notification: Notification) {
+        redrawTimer?.invalidate()
+        fetchTimer?.invalidate()
+        redrawTimer = nil
+        fetchTimer = nil
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+            self.wakeObserver = nil
+        }
+        Westminster.stop()
+    }
+
     /// Grow or shrink the status item so both event names fit without
     /// truncating. Only touched when it actually changes, since resizing a
     /// status item forces a menu bar relayout.
@@ -439,8 +471,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// sleep-to-sleep cycle and that can reach well into tomorrow — or start
     /// yesterday morning, on a night shift.
     private func dayBounds() -> (dayStart: Date, dayEnd: Date, from: Date, to: Date) {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = Config.displayTimeZone
+        let cal = Config.calendar
         let now = Clock.now
         let dayStart = cal.startOfDay(for: now)
         let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86400)
@@ -552,8 +583,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func applyICS(_ ics: String) {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = Config.displayTimeZone
+        let cal = Config.calendar
         let today = Clock.now
         // Yesterday through the day after tomorrow, so the dropdown's
         // sleep-to-sleep cycle can always find both of its anchors.
@@ -572,23 +602,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
 
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "en_US_POSIX")
         // Zero-padded hours, so every row's time column is the same width.
-        df.dateFormat = "hh:mm a"
+        let df = Self.rowFormatter
         df.timeZone = Config.displayTimeZone
 
-        let dayFormatter = DateFormatter()
-        dayFormatter.dateStyle = .full
+        let dayFormatter = Self.dayHeaderFormatter
         dayFormatter.timeZone = Config.displayTimeZone
         addInfo(dayFormatter.string(from: Clock.now)
                     + (Config.isSimulating ? "   ·   simulated" : ""), to: menu)
 
         // --- Debug time ---
         if Config.isSimulating {
-            let stamp = DateFormatter()
-            stamp.locale = Locale(identifier: "en_US_POSIX")
-            stamp.dateFormat = "MMM d, h:mm:ss a"
+            let stamp = Self.debugStampFormatter
             stamp.timeZone = Config.displayTimeZone
             let item = add("⏱ Debug Time: \(stamp.string(from: Clock.now))…",
                            #selector(pickDebugTime), to: menu)
@@ -608,10 +633,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             addInfo("Nothing scheduled", to: menu)
         } else {
             let now = Clock.now
-            var cal = Calendar(identifier: .gregorian)
-            cal.timeZone = Config.displayTimeZone
-            let dayBreak = DateFormatter()
-            dayBreak.dateFormat = "EEEE, MMMM d"
+            let cal = Config.calendar
+            let dayBreak = Self.dayBreakFormatter
             dayBreak.timeZone = Config.displayTimeZone
 
             // The cycle spans two dates, so mark where one day becomes the next
@@ -720,8 +743,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // --- Reading the feed ---
         // Kept next to the calendar it refreshes, rather than up with the day.
         if let lastFetch {
-            df.dateFormat = "h:mm:ss a"
-            addInfo("Updated \(df.string(from: lastFetch))", to: menu)
+            let updated = Self.updatedFormatter
+            updated.timeZone = Config.displayTimeZone
+            addInfo("Updated \(updated.string(from: lastFetch))", to: menu)
         }
         add("Refresh Now", #selector(refreshNow), to: menu, key: "r")
 
@@ -1400,6 +1424,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Menu helpers
 
+    /// Formatters are ICU objects and the menu wants four of them every time it
+    /// opens. Built once; the time zone is reapplied at use, since it can change
+    /// under us.
+    private static let rowFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "hh:mm a"
+        return f
+    }()
+    private static let dayHeaderFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .full
+        return f
+    }()
+    private static let debugStampFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "MMM d, h:mm:ss a"
+        return f
+    }()
+    /// No explicit locale: weekday and month names should follow the Mac's own
+    /// language, as they did before these were hoisted out.
+    private static let dayBreakFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE, MMMM d"
+        return f
+    }()
+
+    /// Separate from `rowFormatter` so neither has to remember to reset the
+    /// other's format.
+    private static let updatedFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "h:mm:ss a"
+        return f
+    }()
+
     private func addInfo(_ title: String, to menu: NSMenu) {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.isEnabled = false
@@ -1672,8 +1733,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let title = sender.representedObject as? String,
               let quarter = Westminster.Quarter.allCases.first(where: { $0.title == title })
         else { return }
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = Config.displayTimeZone
+        let calendar = Config.calendar
         let hour = calendar.component(.hour, from: Clock.now)
         Westminster.ring(quarter, hour: hour % 12 == 0 ? 12 : hour % 12)
     }

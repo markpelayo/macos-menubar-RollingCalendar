@@ -189,29 +189,103 @@ enum ICS {
             .trimmingCharacters(in: .whitespaces)
     }
 
-    /// Returns (date, isAllDay, timezone)
+    /// Calendars are expensive to build and a feed uses only a handful of time
+    /// zones, so they're kept. Parsing happens on the main thread — this is
+    /// reached from the fetch completion, which hops back to main first — so no
+    /// locking is needed.
+    private static var calendars: [String: Calendar] = [:]
+    private static let utc = TimeZone(identifier: "UTC") ?? TimeZone(secondsFromGMT: 0)!
+
+    private static func calendar(for zone: TimeZone) -> Calendar {
+        if let cached = calendars[zone.identifier] { return cached }
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = zone
+        calendars[zone.identifier] = cal
+        return cal
+    }
+
+    /// Digits at a fixed offset, e.g. the month out of "20260819T134500".
+    private static func number(_ digits: [UInt8], _ start: Int, _ length: Int) -> Int? {
+        guard start + length <= digits.count else { return nil }
+        var value = 0
+        for i in start..<(start + length) {
+            let digit = Int(digits[i]) - 48        // "0"
+            guard (0...9).contains(digit) else { return nil }
+            value = value * 10 + digit
+        }
+        return value
+    }
+
+    /// Returns (date, isAllDay, timezone).
+    ///
+    /// Deliberately hand-rolled rather than `DateFormatter`: an iCalendar stamp
+    /// is a fixed run of digits, and a feed with a few hundred events would
+    /// otherwise build a formatter — an ICU object — for every DTSTART, DTEND,
+    /// EXDATE and UNTIL in the file, several times an hour.
     private static func parseDate(_ value: String, _ params: [String: String]) -> (Date, Bool, TimeZone)? {
         let v = value.trimmingCharacters(in: .whitespaces)
         var tz = TimeZone.current
         if let id = params["TZID"], let t = TimeZone(identifier: id) { tz = t }
 
-        if params["VALUE"]?.uppercased() == "DATE" || v.count == 8 {
-            let f = DateFormatter()
-            f.locale = Locale(identifier: "en_US_POSIX")
-            f.dateFormat = "yyyyMMdd"
-            f.timeZone = tz
-            guard let d = f.date(from: v) else { return nil }
-            return (d, true, tz)
-        }
-
         let isUTC = v.hasSuffix("Z")
         let core = isUTC ? String(v.dropLast()) : v
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyyMMdd'T'HHmmss"
-        f.timeZone = isUTC ? TimeZone(identifier: "UTC")! : tz
-        guard let d = f.date(from: core) else { return nil }
-        return (d, false, isUTC ? TimeZone(identifier: "UTC")! : tz)
+        let digits = Array(core.utf8)
+
+        // Date only: an all-day event, taken at midnight in its own zone. The
+        // eight-digit test is on the value as written — "20260819Z" is not a
+        // date-only value — matching what the format string used to accept.
+        let dateOnly = params["VALUE"]?.uppercased() == "DATE" || (!isUTC && digits.count == 8)
+        if dateOnly {
+            guard let date = date(from: digits, timed: false, zone: tz) else { return nil }
+            return (date, true, tz)
+        }
+
+        let zone = isUTC ? utc : tz
+        guard let date = date(from: digits, timed: true, zone: zone) else { return nil }
+        return (date, false, zone)
+    }
+
+    /// `yyyyMMdd`, optionally followed by `THHmmss`.
+    ///
+    /// A trailing tail is ignored rather than rejected, because that is what
+    /// `DateFormatter` did with a fixed format string, and some feeds append
+    /// things the format never mentioned. Out-of-range fields *are* rejected,
+    /// though: `Calendar` would happily read month 13 as next January, where the
+    /// formatter returned nothing, and a silently shifted block is worse than a
+    /// missing one.
+    private static func date(from digits: [UInt8], timed: Bool, zone: TimeZone) -> Date? {
+        guard let year = number(digits, 0, 4),
+              let month = number(digits, 4, 2),
+              let day = number(digits, 6, 2),
+              (1...12).contains(month), (1...31).contains(day) else { return nil }
+
+        var parts = DateComponents()
+        parts.year = year
+        parts.month = month
+        parts.day = day
+
+        if timed {
+            guard digits.count >= 15, digits[8] == UInt8(ascii: "T"),
+                  let hour = number(digits, 9, 2),
+                  let minute = number(digits, 11, 2),
+                  let second = number(digits, 13, 2),
+                  (0...23).contains(hour), (0...59).contains(minute),
+                  // 59, not 60: the formatter rejected a leap second, and
+                  // letting one roll into the next minute would then trip the
+                  // round-trip check below anyway.
+                  (0...59).contains(second) else { return nil }
+            parts.hour = hour
+            parts.minute = minute
+            parts.second = second
+        }
+
+        let cal = calendar(for: zone)
+        guard let date = cal.date(from: parts) else { return nil }
+        // 30 February normalises to 1 or 2 March rather than failing, so the
+        // answer is read back and checked.
+        let check = cal.dateComponents([.year, .month, .day], from: date)
+        guard check.year == year, check.month == month, check.day == day else { return nil }
+        return date
     }
 
     /// ISO 8601 duration, e.g. PT1H30M, P1D, PT45M

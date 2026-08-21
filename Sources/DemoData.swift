@@ -52,7 +52,7 @@ enum DemoData {
     /// neither the strip nor the dropdown's cycle runs out of blocks.
     static func events(around date: Date, timeZone: TimeZone) -> [CalEvent] {
         var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = timeZone
+        cal.timeZone = timeZone      // built once per fetch, not per block
 
         var out: [CalEvent] = []
         for dayOffset in -1...2 {

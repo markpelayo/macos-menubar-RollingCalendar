@@ -153,10 +153,8 @@ enum Westminster {
         let mode = self.mode
         guard mode != .off else { return }
 
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = Config.displayTimeZone
-        let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second],
-                                            from: now)
+        let parts = Config.calendar.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second], from: now)
         guard let minute = parts.minute, minute % 15 == 0,
               let hour = parts.hour, let second = parts.second else { return }
         guard mode == .quarterly || minute == 0 else { return }

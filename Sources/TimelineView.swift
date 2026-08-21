@@ -18,13 +18,17 @@ final class TimelineView: NSView {
     var windowSeconds: TimeInterval { Config.windowMinutes * 60 }
 
     var events: [CalEvent] = [] {
-        didSet { needsDisplay = true }
+        didSet { generation += 1; needsDisplay = true }
     }
 
     /// Set when the calendar could not be loaded, so we can show a hint.
     var errorMessage: String? {
-        didSet { needsDisplay = true }
+        didSet { generation += 1; needsDisplay = true }
     }
+
+    /// Bumped whenever anything the labels depend on changes, so the cache below
+    /// knows its answer is stale.
+    private var generation = 0
 
     /// How long before a block ends the left label starts shouting.
     static var urgentThreshold: TimeInterval { Config.urgentSeconds }
@@ -69,10 +73,50 @@ final class TimelineView: NSView {
         return x.end > y.start && x.start < y.end
     }
 
+    /// The labels are wanted twice per tick — once to size the menu bar item,
+    /// once to draw it — and composing them means building attributed strings and
+    /// measuring text. Once per second is enough, so the answer is kept until the
+    /// second, the events, the settings or the appearance change.
+    private struct GutterKey: Equatable {
+        let second: Int
+        let generation: Int
+        let dark: Bool
+        let settings: Int
+    }
+
+    private var cachedGutters: (key: GutterKey, value: Gutters)?
+
+    /// A fingerprint of exactly what the labels read — including the font size,
+    /// since the text is measured as well as composed. Nothing else in `Config`
+    /// belongs here: a value that doesn't reach a label can't make one stale.
+    private static var settingsFingerprint: Int {
+        var hasher = Hasher()
+        hasher.combine(Config.maxLabelWidth)
+        hasher.combine(Config.titleFontSize)
+        hasher.combine(Config.showNowName)
+        hasher.combine(Config.showNowTimeLeft)
+        hasher.combine(Config.showNextName)
+        hasher.combine(Config.showNextDuration)
+        hasher.combine(Config.isSimulating)
+        hasher.combine(Config.urgentSeconds)
+        return hasher.finalize()
+    }
+
     private func gutters(now: Date) -> Gutters {
+        let key = GutterKey(second: Int(now.timeIntervalSince1970),
+                            generation: generation,
+                            dark: isDarkAppearance,
+                            settings: Self.settingsFingerprint)
+        if let cached = cachedGutters, cached.key == key { return cached.value }
+        let fresh = composeGutters(now: now)
+        cachedGutters = (key, fresh)
+        return fresh
+    }
+
+    private func composeGutters(now: Date) -> Gutters {
         var g = Gutters()
         let timed = events.filter { !$0.isAllDay }
-        let running = timed.filter { Self.span($0).start <= now && Self.span($0).end > now }
+        let running = timed.filter { let s = Self.span($0); return s.start <= now && s.end > now }
         let upcoming = timed.filter { $0.start > now }
         // Reminders count towards the warnings, but a "(0s)" label helps nobody,
         // so only real blocks are eligible to headline a gutter.
