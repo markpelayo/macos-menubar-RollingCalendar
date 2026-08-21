@@ -4,7 +4,9 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] — 2026-08-21
+## [1.3.1] — 2026-08-22
+
+Internal only: no new features, nothing moved in the menu, no settings changed.
 
 ### Changed
 
@@ -22,6 +24,21 @@ All notable changes to this project are documented here. The format follows
   announced-blocks set is pruned by age instead of being emptied wholesale.
 - The wake observer is now released, and the timers invalidated and the audio
   engine stopped, on quit.
+
+### Fixed
+
+- The set of already-announced blocks was emptied wholesale once it passed a
+  thousand entries, which could let a block be announced a second time. It's now
+  pruned by age, so an entry is only dropped once its block can no longer come
+  due.
+- iCalendar dates with an out-of-range field — month 13, 30 February — were
+  refused by the old `DateFormatter` and are refused by the hand-rolled parser
+  too, rather than being rolled forward into a plausible-looking wrong date.
+- The wake-from-sleep observer was registered and its token thrown away. It's
+  now released on quit, along with invalidating both timers and stopping the
+  audio engine.
+
+## [1.3.0] — 2026-08-21
 
 ### Added
 
@@ -160,6 +177,7 @@ First public release.
 - Recurring events are handled for a common subset of RFC 5545 — `RRULE` with `FREQ`, `INTERVAL`,
   `COUNT`, `UNTIL`, `BYDAY`, plus `EXDATE` and `RECURRENCE-ID` overrides.
 
+[1.3.1]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.3.1
 [1.3.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.3.0
 [1.2.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.2.0
 [1.1.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.1.0

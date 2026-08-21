@@ -3,11 +3,11 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform: macOS 13+](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey)](#quick-start)
 [![Status: in development](https://img.shields.io/badge/status-in%20development-orange)](#known-limitations)
-[![Release: v1.3.0](https://img.shields.io/badge/release-v1.3.0-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
+[![Release: v1.3.1](https://img.shields.io/badge/release-v1.3.1-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
 
 A macOS menu bar app that draws today's calendar as a horizontal timeline scrolling past a fixed "now" marker. Instead of asking *what time is my next thing*, you glance up and see where you are.
 
-> **Status: in development.** Working and usable — [v1.3.0](CHANGELOG.md) is the current release — but rough edges remain, see [Known limitations](#known-limitations). Behaviour, defaults and stored preferences may change without migration.
+> **Status: in development.** Working and usable — [v1.3.1](CHANGELOG.md) is the current release — but rough edges remain, see [Known limitations](#known-limitations). Behaviour, defaults and stored preferences may change without migration.
 
 ## The UI
 
@@ -60,7 +60,7 @@ chmod +x build.sh
 open build/RollingCalendar.app
 ```
 
-Needs macOS 13+ and Xcode Command Line Tools (`xcode-select --install`) for `swiftc`. No packages, no dependencies, no Xcode project — one shell script and seven Swift files.
+Needs macOS 13+ and Xcode Command Line Tools (`xcode-select --install`) for `swiftc`. No packages, no dependencies, no Xcode project — one shell script and eleven Swift files.
 
 **It starts in Demo Mode**, showing a realistic time-blocked day, so you can see it working before connecting anything. Click the strip → **Demo Mode** to turn that off once you've set up a real calendar.
 
@@ -461,13 +461,34 @@ Only today is loaded; other days are ignored, though events straddling midnight 
 | `Sources/CalendarSource.swift` | Normalizes any pasted calendar link into a feed URL |
 | `Sources/CalendarRowView.swift` | Saved-calendar menu row with inline rename and remove buttons |
 | `Sources/KeywordRules.swift` | CSV import, keyword matching and longest-phrase precedence |
-| `Sources/DemoData.swift` | Synthetic 15-minute blocks for Demo Mode |
+| `Sources/Alerts.swift` | Lead times, alert sounds, speech voices and the category filter |
+| `Sources/Westminster.swift` | The quarter chime and hour strikes, synthesised from sine partials |
+| `Sources/LoginItem.swift` | The LaunchAgent behind Run at Startup |
+| `Sources/ToggleRowView.swift` | Menu rows that toggle without dismissing the menu |
+| `Sources/DemoData.swift` | A realistic time-blocked day for Demo Mode, overlaps included |
 | `build.sh` | Compiles and packages the `.app` (LSUIElement, ad-hoc signed) |
 | `examples/` | Importable 15-minute test calendars |
 | `docs/` | UI diagrams and screenshots |
+| `release-notes.sh` | Prints one version's changelog section, for a release body |
 | `DISCLAIMER.md` | No-warranty and liability notice |
 
 No storyboards, no `.xcodeproj`, no SwiftPM manifest. `swiftc` is invoked directly and the bundle is assembled by hand, so the whole build is readable in one file.
+
+### What it costs to run
+
+The strip redraws once a second and the feed is re-read every five minutes; nothing else is scheduled. A few things are deliberately computed once and kept, because they were being rebuilt far more often than they change:
+
+| Kept | Rebuilt when |
+|---|---|
+| The gutter labels | the second, the events, the settings or light/dark mode change |
+| The `Calendar` | the time zone changes |
+| The four menu `DateFormatter`s | never — they're created at launch |
+| The list of installed voices | a voice is downloaded, or the Mac wakes |
+| The list of alert sounds | one is imported, or the Mac wakes |
+
+iCalendar dates are parsed by hand rather than through `DateFormatter`, since a feed with a few hundred events would otherwise build an ICU formatter for every `DTSTART`, `DTEND`, `EXDATE` and `UNTIL` in the file, several times an hour.
+
+Together that's tens of kilobytes held, against roughly 25–60 MB resident for any AppKit menu bar app — most of which is shared framework pages. Downloaded voices are not part of it: their audio lives on disk and is loaded by macOS's own speech process, never this one. On quit the wake observer is released, both timers invalidated and the audio engine stopped.
 
 ## Known limitations
 
@@ -498,13 +519,13 @@ Issues and pull requests are welcome. Keep it dependency-free and keep the idle 
 ## Releases
 
 Versions are tagged and described in [CHANGELOG.md](CHANGELOG.md), which is the only copy of the
-notes — `./release-notes.sh 1.3.0` prints one version's section for a release body. The same notes appear on the
+notes — `./release-notes.sh 1.3.1` prints one version's section for a release body. The same notes appear on the
 [releases page](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases). Each release
 carries source only — no app bundle, for the notarisation reason above — so installing a given
 version means checking out its tag and running `./build.sh`:
 
 ```bash
-git checkout v1.3.0
+git checkout v1.3.1
 ./build.sh
 ```
 
