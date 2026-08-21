@@ -26,7 +26,11 @@ Time flows right-to-left. The red line is fixed at the centre and always marks n
 
 The strip is deliberately small — it lives in the menu bar and is meant to be read at a glance, not studied.
 
-Clicking it opens the day's blocks, and everything else lives in that menu. It's shown here in four parts, top to bottom.
+Clicking it opens the day's blocks, and everything else lives in that menu:
+
+![A map of the whole menu, top to bottom](docs/ui-menu-map.png)
+
+The screenshots below are of the real menu, and cover it in four parts. They predate **Time Block Alerts**, **Westminster Chime** and **Run at Startup** — the map above is the current order.
 
 ### 1 · The header
 
@@ -40,9 +44,11 @@ Clicking it opens the day's blocks, and everything else lives in that menu. It's
 
 ![The appearance section: Time Range, Timeline Width, Labels, Label Length, Keyword Colors, Restore Defaults](docs/ui-menu-appearance.png)
 
+**Refresh Now (⌘R)** re-reads the feed immediately rather than waiting for the five-minute timer. It sits lower down now, beside the calendar it refreshes.
+
 ### 4 · Where the calendar comes from
 
-![The calendar section: current source, Demo Mode, Saved Calendars and Quit](docs/ui-menu-source.png)
+![The calendar section: current source, Demo Mode and Saved Calendars](docs/ui-menu-source.png)
 
 ## Quick start
 
@@ -491,7 +497,8 @@ Issues and pull requests are welcome. Keep it dependency-free and keep the idle 
 
 ## Releases
 
-Versions are tagged and described in [CHANGELOG.md](CHANGELOG.md); the same notes appear on the
+Versions are tagged and described in [CHANGELOG.md](CHANGELOG.md), which is the only copy of the
+notes — `./release-notes.sh 1.3.0` prints one version's section for a release body. The same notes appear on the
 [releases page](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases). Each release
 carries source only — no app bundle, for the notarisation reason above — so installing a given
 version means checking out its tag and running `./build.sh`:
