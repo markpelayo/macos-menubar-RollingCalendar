@@ -2,11 +2,11 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform: macOS 13+](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey)](#quick-start)
-[![Release: v1.4.0](https://img.shields.io/badge/release-v1.4.0-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
+[![Release: v1.4.1](https://img.shields.io/badge/release-v1.4.1-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
 
 A macOS menu bar app that draws today's calendar as a horizontal timeline scrolling past a fixed "now" marker. Instead of asking *what time is my next thing*, you glance up and see where you are.
 
-It's in daily use, and [v1.4.0](CHANGELOG.md) is the current release. What it deliberately doesn't do is listed under [Known limitations](#known-limitations).
+It's in daily use, and [v1.4.1](CHANGELOG.md) is the current release. What it deliberately doesn't do is listed under [Known limitations](#known-limitations).
 
 ## The UI
 
@@ -28,7 +28,7 @@ The strip is deliberately small — it lives in the menu bar and is meant to be 
 Clicking it opens the day's blocks, and everything else lives in that menu. The first row names the app, the version it's actually running — read from the bundle, so it can't disagree with the binary — and opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar):
 
 ```
-macos-menubar-RollingCalendar 1.4.0  ·  by markpelayo
+macos-menubar-RollingCalendar 1.4.1  ·  by markpelayo
 ```
 
 ![A map of the whole menu, top to bottom](docs/ui-menu-map.png)
@@ -463,7 +463,7 @@ Most of it is in the menu — click the strip:
 | **Updated hh:mm:ss** | When the feed was last read successfully |
 | **Quit (⌘Q)** | Leaves nothing behind: no helper, and no login item unless you added one |
 
-The first row of the menu — `macos-menubar-RollingCalendar 1.4.0 · by markpelayo` — opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar). The version is read from the app bundle, so it always names the build you're running.
+The first row of the menu — `macos-menubar-RollingCalendar 1.4.1 · by markpelayo` — opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar). The version is read from the app bundle, so it always names the build you're running.
 
 The two are independent: **range** decides how much time you see, **width** decides how much space it gets. Together they set how big a block looks — at the default ±1 hour across 250 pt, a 15-minute block is about 31 pt wide; narrow the range to ±15 minutes at the same width and it grows to 125 pt. Each width option's tooltip does that arithmetic for you, and the note at the foot of the menu shows the current result.
 
@@ -582,13 +582,13 @@ Issues and pull requests are welcome. Keep it dependency-free and keep the idle 
 ## Releases
 
 Versions are tagged and described in [CHANGELOG.md](CHANGELOG.md), which is the only copy of the
-notes — `./release-notes.sh 1.4.0` prints one version's section for a release body. The same notes appear on the
+notes — `./release-notes.sh 1.4.1` prints one version's section for a release body. The same notes appear on the
 [releases page](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases). Each release
 carries source only — no app bundle, for the notarisation reason above — so installing a given
 version means checking out its tag and running `./build.sh`:
 
 ```bash
-git checkout v1.4.0
+git checkout v1.4.1
 ./build.sh
 ```
 

@@ -4,6 +4,35 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] — 2026-08-24
+
+Documentation only: the app is unchanged from 1.4.0 apart from the version it reports.
+
+### Changed
+
+- The project is no longer labelled *in development*. It's in daily use, and what it deliberately
+  doesn't do is listed under Known limitations instead — now including that it only ever reads a
+  calendar, that Siri's voice can't be used for spoken alerts, and that a failed refresh keeps the
+  last good day for half an hour.
+
+### Fixed
+
+- The README claimed **only today is loaded**; four days are (yesterday through the day after
+  tomorrow), so the sleep-to-sleep cycle can find both of its boundaries.
+- It still advised checking for a **purple tint** that was removed several versions ago, two lines
+  after saying nothing is tinted.
+- The bundled sample is **41 keywords**, not 37, in both the README and the changelog; the changelog
+  also had the CSV's column order backwards.
+- `examples/README.md` pointed at a **Choose Calendar** menu that hasn't existed since calendars
+  became named profiles.
+- **Quit**, **Debug Time** and the **Updated** row were missing from the Configuration table, which
+  reads as a complete list of the menu; the Keyword Colors sketch omitted **Use Sample Colors** and
+  **Save Sample CSV…**; and the first-run case, where *Add Calendar…* sits at the top level rather
+  than inside a submenu, went unmentioned.
+- Midday's chime is **about 80 seconds**, not 70; there are five menu formatters, not four; two shell
+  scripts, not one; and **CAF** belongs in the list of sound formats the importer accepts.
+- The colour wheel in `docs/` is now shown in the Keyword Colors section rather than sitting unused.
+
 ## [1.4.0] — 2026-08-24
 
 ### Added
@@ -239,6 +268,7 @@ First public release.
 - Recurring events are handled for a common subset of RFC 5545 — `RRULE` with `FREQ`, `INTERVAL`,
   `COUNT`, `UNTIL`, `BYDAY`, plus `EXDATE` and `RECURRENCE-ID` overrides.
 
+[1.4.1]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.4.1
 [1.4.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.4.0
 [1.3.1]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.3.1
 [1.3.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.3.0
