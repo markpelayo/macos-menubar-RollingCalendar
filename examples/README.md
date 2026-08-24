@@ -37,7 +37,7 @@ Google's "Oops, we couldn't import this file" is generic and tells you nothing. 
 5. Check the download didn't land as `.ics.txt`
 6. Wait and retry; the error is sometimes genuinely transient
 
-Or skip importing entirely: **Demo Mode** generates the same grid inside the app, and **Add Calendar…** accepts `file:///absolute/path/to/15min-blocks-recurring.ics` to read a local file directly — no publishing, no waiting on Google's feed cache.
+Or skip importing entirely: **Demo Calendar** generates the same grid inside the app, and **Add Calendar…** accepts `file:///absolute/path/to/15min-blocks-recurring.ics` to read a local file directly — no publishing, no waiting on Google's feed cache.
 
 ## Colour
 

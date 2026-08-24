@@ -8,13 +8,21 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **One date line instead of two rows.** The date header now reads
+  `Week 35 · Monday · August 24, 2026 · Demo Calendar (test data)`, with a red **❗Simulated❗** on the
+  end when Debug Time has moved the clock — the same marker the strip uses. It's lighter and smaller
+  than the rows below, since it's context rather than content, and it absorbs the old separate
+  *Calendar:* caption, saving a line.
+- The week number is **ISO 8601**, so it means the same thing regardless of locale.
+- **"Demo Mode" is now "Demo Calendar"**, so it can't be confused with the simulated clock — two
+  different kinds of pretending, and only one of them is about the calendar.
 - **"When it starts"** joins the lead times: an alert as the block begins rather than ahead of it,
   saying *"Focus Work, starting now"*. The row above it is now **Alert Me** rather than *Alert Me
   Before*, which that option would have contradicted.
 - **Time Block Alerts says "Off"** in its own title when nothing is set, matching the Westminster
   Chime row rather than going quiet about it.
 - **Restore Defaults…**, in its own block above Quit. A factory reset: every setting forgotten, the
-  LaunchAgent deleted, saved calendars removed and Demo Mode restored, exactly as on a first launch.
+  LaunchAgent deleted, saved calendars removed and Demo Calendar restored, exactly as on a first launch.
   It confirms first, itemising what will go, with **Cancel** as the default button — Return shouldn't
   be the fast path to a wipe. It clears the whole preference domain rather than a list of keys, so a
   setting added later can't be left behind. The strip-only reset is renamed **Restore Strip Settings**, so each name
@@ -263,7 +271,7 @@ First public release.
 - **Saved Calendars** — public iCalendar feeds kept as named profiles you can switch between,
   rename, or remove. Embed links, `newembed` links, `.ics` URLs, secret addresses, `webcal://`, a
   bare calendar address and `file://` paths are all accepted and normalised to a feed URL.
-- **Demo Mode** — a realistic time-blocked day generated in the app, including deliberate overlaps,
+- **Demo Calendar** — a realistic time-blocked day generated in the app, including deliberate overlaps,
   so the strip works before any calendar is connected. It supplies times and names only; colour
   still comes from your keyword rules.
 - **Debug Time** — move the whole app to any moment to see how a given hour will look. The header

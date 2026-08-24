@@ -35,7 +35,17 @@ macos-menubar-RollingCalendar 1.4.1  ·  by markpelayo
 
 The screenshots below are of the real menu, and cover it in four parts. They predate the project row, **Sound Hours**, **Time Block Alerts**, **Westminster Chime** and **Run at Startup** — the map above is the current order.
 
-### 1 · Date and Debug Time
+### 1 · The date line
+
+The day, the week and the source in one caption, lighter and smaller than the rows beneath it — it's context, and the blocks are what you came to read:
+
+```
+Week 35  ·  Monday  ·  August 24, 2026  ·  Demo Calendar (test data)  ·  ❗Simulated❗
+```
+
+The week number is **ISO 8601**, so "Week 35" means the same thing to anyone reading it rather than depending on where they live. The last part names whichever calendar is being read — a saved calendar by name, or the Demo Calendar — which is why there's no longer a separate *Calendar:* row. The red **❗Simulated❗** appears only when Debug Time has moved the clock, matching the marker on the strip.
+
+### 2 · Date and Debug Time
 
 ![The date row, Debug Time and Reset to Current Time](docs/ui-menu-header.png)
 
@@ -53,7 +63,7 @@ The screenshots below are of the real menu, and cover it in four parts. They pre
 
 This block sits between the day's blocks and the strip settings: the list above it is what the calendar produced, and the settings below it are how that list is drawn.
 
-![The calendar section: current source, Demo Mode and Saved Calendars](docs/ui-menu-source.png)
+![The calendar section: current source, Demo Calendar and Saved Calendars](docs/ui-menu-source.png)
 
 ## Quick start
 
@@ -67,7 +77,7 @@ open build/RollingCalendar.app
 
 Needs macOS 13+ and Xcode Command Line Tools (`xcode-select --install`) for `swiftc`. No packages, no dependencies, no Xcode project — two shell scripts and fourteen Swift files.
 
-**It starts in Demo Mode**, showing a realistic time-blocked day, so you can see it working before connecting anything. Click the strip → **Demo Mode** to turn that off once you've set up a real calendar.
+**It starts in Demo Calendar**, showing a realistic time-blocked day, so you can see it working before connecting anything. Click the strip → **Demo Calendar** to turn that off once you've set up a real calendar.
 
 To keep it: `cp -R build/RollingCalendar.app /Applications/`. To start it at login: **System Settings → General → Login Items → +**, then pick RollingCalendar.
 
@@ -97,7 +107,7 @@ Saved Calendars ▸
       Add Calendar…
 ```
 
-A tick marks the calendar actually being read — nothing is ticked in Demo Mode, and **Saved Calendars** itself is ticked whenever a saved calendar is live. Click a row to switch to it. The **pencil** renames it, the **✕** removes it after a confirmation that spells out what happens — whether it's the one in use, or your last one. Only the saved link is ever forgotten; your actual calendar is untouched.
+A tick marks the calendar actually being read — nothing is ticked in Demo Calendar, and **Saved Calendars** itself is ticked whenever a saved calendar is live. Click a row to switch to it. The **pencil** renames it, the **✕** removes it after a confirmation that spells out what happens — whether it's the one in use, or your last one. Only the saved link is ever forgotten; your actual calendar is untouched.
 
 Before the first calendar is saved there is no submenu to open — the menu shows a plain **Add Calendar…** instead, and *Saved Calendars ▸* appears once you have one.
 
@@ -257,7 +267,7 @@ The offset survives a relaunch, which is what you want mid-testing. If the strip
 
 ## Testing without a calendar
 
-**Demo Mode** (strip → *Demo Mode*) generates a plausible day in-app: sleep, focus blocks, meals, a nap, an evening shift that runs past midnight, and two deliberate collisions — a double-booked call at 15:00, and a stretch at 16:15 where an interview and a standup both land inside a focus block, so the 🔴 badges have something to report.
+**Demo Calendar** (strip → *Demo Calendar*) generates a plausible day in-app: sleep, focus blocks, meals, a nap, an evening shift that runs past midnight, and two deliberate collisions — a double-booked call at 15:00, and a stretch at 16:15 where an interview and a standup both land inside a focus block, so the 🔴 badges have something to report.
 
 It supplies only what a calendar would — **times and names, never colours**. Colour comes from the same [keyword rules](#keyword-colors) as a real feed, so **Clear Keyword Colors** turns the demo grey exactly as it would turn your calendar grey. On a first launch the sample rules are applied once, so it looks configured out of the box.
 
@@ -421,12 +431,12 @@ Restore everything to defaults?
   •  Sounds: alerts and chime off, Sound Hours 11:30 AM – 4:30 AM
   •  Run at Startup: off, and the login item removed
   •  Debug Time: cleared
-  •  2 saved calendars: removed, leaving Demo Mode
+  •  2 saved calendars: removed, leaving Demo Calendar
 ```
 
 It removes the whole preference domain rather than a list of keys, so a setting added in some later version can't be left behind by an out-of-date list, and it deletes the LaunchAgent explicitly — that's a file rather than a preference, and would otherwise go on launching an app that has forgotten it asked. **Cancel is the default button**, since Return should not be the fast path to a wipe.
 
-**Your calendars themselves are untouched.** Only the links saved here are forgotten; nothing is ever written to a calendar. You'll be back in Demo Mode, exactly as on a first launch.
+**Your calendars themselves are untouched.** Only the links saved here are forgotten; nothing is ever written to a calendar. You'll be back in Demo Calendar, exactly as on a first launch.
 
 ## Run at Startup
 
@@ -478,7 +488,7 @@ Most of it is in the menu — click the strip:
 | **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 360 pt, about 47 characters) |
 | **Keyword Colors ▸** | Import a CSV of keyword → colour rules, load the bundled sample, save it out to edit, or clear it |
 | **Restore Strip Settings** | The strip only: back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Greyed out when nothing has been changed |
-| **Demo Mode** | A generated day, so the strip works before any calendar is connected |
+| **Demo Calendar** | A generated day, so the strip works before any calendar is connected |
 | **Saved Calendars ▸** | Public feeds kept as named profiles: switch, rename, remove |
 | **Sound Hours ▸** | The hours in which the alerts and the chime may sound — several windows, midnight wrap allowed (default 11:30 AM – 4:30 AM) |
 | **Time Block Alerts ▸** | A sound or the block name spoken, as a block starts or at one or more lead times before it, for the categories you choose (**off** by default) |
@@ -487,7 +497,7 @@ Most of it is in the menu — click the strip:
 | **Run at Startup ▸** | Off, on, or on after a wait of 5–60 s (**off** by default) |
 | **Debug Time… / Reset to Current Time** | Move the whole app to another moment, and back — see [Debug Time](#debug-time) |
 | **Updated hh:mm:ss** | When the feed was last read successfully |
-| **Restore Defaults…** | A factory reset, confirmed first: every setting forgotten, saved calendars removed, back to Demo Mode |
+| **Restore Defaults…** | A factory reset, confirmed first: every setting forgotten, saved calendars removed, back to Demo Calendar |
 | **Quit (⌘Q)** | Leaves nothing behind: no helper, and no login item unless you added one |
 
 The first row of the menu — `macos-menubar-RollingCalendar 1.4.1 · by markpelayo` — opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar). The version is read from the app bundle, so it always names the build you're running.
@@ -548,7 +558,7 @@ Four days are loaded — yesterday through the day after tomorrow — so the sle
 | `Sources/ToggleRowView.swift` | Menu rows that toggle without dismissing the menu |
 | `Sources/ProjectRowView.swift` | The dim, clickable first row that opens the project page |
 | `Sources/EventRowView.swift` | A day-list row: highlights on hover, ignores the click |
-| `Sources/DemoData.swift` | A realistic time-blocked day for Demo Mode, overlaps included |
+| `Sources/DemoData.swift` | A realistic time-blocked day for Demo Calendar, overlaps included |
 | `build.sh` | Compiles and packages the `.app` (LSUIElement, ad-hoc signed) |
 | `examples/` | Importable 15-minute test calendars |
 | `docs/` | UI diagrams and screenshots |

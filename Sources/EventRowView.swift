@@ -25,6 +25,9 @@ import AppKit
 final class EventRowView: NSView {
 
     private let content: NSAttributedString
+    /// A caption — the date line — is read, not tracked along, so it takes the
+    /// same click-swallowing treatment without the highlighter.
+    private let highlights: Bool
     /// Measured once at build time — sixty rows redrawing on every hover is not
     /// the place to re-measure text.
     private let contentSize: NSSize
@@ -43,8 +46,9 @@ final class EventRowView: NSView {
         return NSSize(width: ceil(bounds.width), height: ceil(bounds.height))
     }
 
-    init(content: NSAttributedString) {
+    init(content: NSAttributedString, highlights: Bool = true) {
         self.content = content
+        self.highlights = highlights
         let size = Self.measure(content)
         self.contentSize = size
         super.init(frame: NSRect(x: 0, y: 0,
@@ -90,7 +94,7 @@ final class EventRowView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        if isHovered {
+        if isHovered, highlights {
             highlightColour.setFill()
             NSBezierPath(roundedRect: bounds.insetBy(dx: 5, dy: 0),
                          xRadius: 4, yRadius: 4).fill()

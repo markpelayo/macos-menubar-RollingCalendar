@@ -337,6 +337,20 @@ enum Config {
         return fresh
     }
 
+    private static var cachedISO: (zone: String, calendar: Calendar)?
+
+    /// Week numbers only. ISO 8601 rather than the locale's own numbering, so
+    /// "Week 35" means the same thing to everyone reading it — that's the whole
+    /// point of quoting a week number.
+    static var iso8601: Calendar {
+        let zone = displayTimeZone
+        if let cachedISO, cachedISO.zone == zone.identifier { return cachedISO.calendar }
+        var fresh = Calendar(identifier: .iso8601)
+        fresh.timeZone = zone
+        cachedISO = (zone.identifier, fresh)
+        return fresh
+    }
+
     /// Stored as an offset rather than an absolute date, so the simulated clock
     /// keeps running instead of standing still.
     static func setDebugTime(_ date: Date) {
@@ -511,7 +525,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Fetching
 
     private func fetch() {
-        // Taken here rather than inside the feed path, so switching to Demo Mode
+        // Taken here rather than inside the feed path, so switching to the Demo Calendar
         // or clearing the calendar also invalidates a request already in flight.
         fetchGeneration += 1
         if Config.demoMode {
@@ -688,10 +702,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let df = Self.rowFormatter
         df.timeZone = Config.displayTimeZone
 
-        let dayFormatter = Self.dayHeaderFormatter
-        dayFormatter.timeZone = Config.displayTimeZone
-        addInfo(dayFormatter.string(from: Clock.now)
-                    + (Config.isSimulating ? "   ·   simulated" : ""), to: menu)
+        // One caption instead of two rows: week, weekday, date, which calendar
+        // is being read, and — in red, as on the strip — whether the clock is
+        // being simulated.
+        let caption = EventRowView(content: Self.dayCaption(), highlights: false)
+        menu.addItem({ let item = NSMenuItem(); item.view = caption; return item }())
 
         // --- Debug time ---
         if Config.isSimulating {
@@ -752,19 +767,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
 
-        // --- Which source is live ---
-        if Config.demoMode {
-            addInfo("Calendar: demo blocks (test data)", to: menu)
-        } else if let name = Config.calendarDisplayName {
-            addInfo("Calendar: \(name)", to: menu)
-        } else {
-            addInfo("No calendar set up yet", to: menu)
-        }
-
-        // Demo toggle stays reachable in every state.
-        let demoItem = add("Demo Mode", #selector(toggleDemoMode), to: menu)
+        // --- Where the blocks come from ---
+        // No caption here any more: which calendar is live is named in the date
+        // line at the top, which had room for it.
+        //
+        // "Demo Calendar" rather than "Demo Mode", so it can't be mistaken for
+        // the simulated clock — two different kinds of pretending.
+        let demoItem = add("Demo Calendar", #selector(toggleDemoMode), to: menu)
         demoItem.state = Config.demoMode ? .on : .off
-        demoItem.toolTip = "Synthetic 15-minute blocks, to check the strip moves correctly"
+        demoItem.toolTip = "A generated day, so the strip works before any calendar is connected"
 
         if Config.profiles.isEmpty {
             add("Add Calendar…", #selector(addCalendarProfile), to: menu)
@@ -772,7 +783,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let saved = NSMenuItem(title: "Saved Calendars", action: nil, keyEquivalent: "")
             saved.submenu = savedCalendarsMenu()
             // Ticked when a saved calendar is what's actually being read, so it
-            // reads as the counterpart to Demo Mode above it.
+            // reads as the counterpart to Demo Calendar above it.
             saved.state = (!Config.demoMode && Config.hasCalendarInput) ? .on : .off
             menu.addItem(saved)
         }
@@ -849,7 +860,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let startup = NSMenuItem(title: LoginItem.menuTitle, action: nil, keyEquivalent: "")
         startup.submenu = startupMenu()
         // Ticked whenever it will launch at login, delay or not, so the state
-        // reads at a glance the way Demo Mode and Saved Calendars do.
+        // reads at a glance the way Demo Calendar and Saved Calendars do.
         startup.state = LoginItem.isEnabled ? .on : .off
         menu.addItem(startup)
 
@@ -1521,7 +1532,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let sub = NSMenu()
         sub.autoenablesItems = false
 
-        // In Demo Mode the saved calendars aren't being read, so none is ticked.
+        // With the Demo Calendar the saved calendars aren't being read, so none is ticked.
         let active = Config.demoMode ? nil : Config.activeProfileName
         for profile in Config.profiles {
             let row = CalendarRowView(title: profile.name, isActive: profile.name == active)
@@ -1626,9 +1637,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         f.dateFormat = "hh:mm a"
         return f
     }()
+    /// "August 24, 2026" — no weekday, since the caption names it separately.
+    /// `.long` rather than a format string, so other languages read naturally.
     private static let dayHeaderFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.dateStyle = .full
+        f.dateStyle = .long
         return f
     }()
     private static let debugStampFormatter: DateFormatter = {
@@ -1681,6 +1694,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             view.needsDisplay = true
         }
     }
+
+    /// "Week 35 · Monday · August 24, 2026 · Demo Calendar (test data)", plus a
+    /// red simulation marker when the clock has been moved.
+    ///
+    /// Lighter than the rows below it — it's a caption, and the day's blocks are
+    /// what you came to read.
+    private static func dayCaption() -> NSAttributedString {
+        let now = Clock.now
+        let calendar = Config.iso8601
+        let week = calendar.component(.weekOfYear, from: now)
+
+        let weekday = dayNameFormatter
+        weekday.timeZone = Config.displayTimeZone
+        let date = dayHeaderFormatter
+        date.timeZone = Config.displayTimeZone
+
+        let source: String
+        if Config.demoMode {
+            source = "Demo Calendar (test data)"
+        } else if let name = Config.calendarDisplayName {
+            source = name
+        } else {
+            source = "No calendar yet"
+        }
+
+        let font = NSFont.menuFont(ofSize: NSFont.smallSystemFontSize)
+        let text = NSMutableAttributedString(
+            string: "Week \(week)  ·  \(weekday.string(from: now))  ·  "
+                  + "\(date.string(from: now))  ·  \(source)",
+            attributes: [.font: font, .foregroundColor: NSColor.tertiaryLabelColor])
+
+        if Config.isSimulating {
+            text.append(NSAttributedString(
+                string: "  ·  ❗Simulated❗",
+                attributes: [.font: NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask),
+                             .foregroundColor: NSColor.systemRed]))
+        }
+        return text
+    }
+
+    /// Just the weekday, since the full date formatter spells out both and the
+    /// caption wants them separated by a divider.
+    private static let dayNameFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE"
+        return f
+    }()
 
     /// A dim, unclickable line of explanation at the foot of a submenu.
     private func addNote(_ text: String, to menu: NSMenu) {
@@ -1851,7 +1911,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         •  Sounds: alerts and chime off, Sound Hours 11:30 AM – 4:30 AM
         •  Run at Startup: off, and the login item removed
         •  Debug Time: cleared
-        •  \(calendars): removed, leaving Demo Mode
+        •  \(calendars): removed, leaving the Demo Calendar
 
         Your calendars themselves are untouched — only the links saved here are         forgotten. This can't be undone.
         """

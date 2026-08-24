@@ -118,7 +118,7 @@ final class CalendarRowView: NSView {
         let font = NSFont.menuFont(ofSize: 0)
 
         // A checkmark, matching every other selected item in the menu. Only the
-        // calendar actually being read gets one — in Demo Mode nothing is.
+        // calendar actually being read gets one — with the Demo Calendar nothing is.
         if isActive {
             let tick = NSAttributedString(string: "✓", attributes: [
                 .font: NSFont.menuFont(ofSize: 0), .foregroundColor: ink
