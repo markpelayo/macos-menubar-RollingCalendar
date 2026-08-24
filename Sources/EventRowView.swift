@@ -12,10 +12,16 @@ import AppKit
 /// genuinely useful for tracking your place in a list of sixty, and it swallows
 /// the click, because there is nothing for a click to do.
 ///
-/// The highlight is deliberately faint rather than the full selection blue: the
-/// text is already carrying meaning in its colours — dim for past, bold for now,
-/// a coloured chip per category — and painting solid blue behind it would fight
-/// all three.
+/// The highlight is a soft yellow rather than the system's selection blue, for
+/// two reasons. Blue is what macOS uses for *selection*, and nothing here can be
+/// selected — borrowing it promises something the row can't deliver, which is the
+/// same false note as a click that does nothing. And the text is already carrying
+/// meaning in its colours — dim for past, bold for now, a chip per category — so
+/// a saturated band behind it fights all three. Yellow reads as a highlighter
+/// marking your place, which is exactly what it's for.
+///
+/// The actionable rows elsewhere in the menu keep the blue, because there the
+/// promise is true.
 final class EventRowView: NSView {
 
     private let content: NSAttributedString
@@ -74,9 +80,18 @@ final class EventRowView: NSView {
 
     // MARK: Drawing
 
+    /// Light mode gets a proper highlighter yellow behind dark text. Dark mode
+    /// gets a much fainter wash: the text there is near-white, and anything
+    /// approaching a solid yellow would either drown it or force the row to
+    /// restyle its own colours — which are carrying meaning of their own.
+    private var highlightColour: NSColor {
+        let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        return NSColor.systemYellow.withAlphaComponent(dark ? 0.20 : 0.34)
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         if isHovered {
-            NSColor.selectedContentBackgroundColor.withAlphaComponent(0.28).setFill()
+            highlightColour.setFill()
             NSBezierPath(roundedRect: bounds.insetBy(dx: 5, dy: 0),
                          xRadius: 4, yRadius: 4).fill()
         }

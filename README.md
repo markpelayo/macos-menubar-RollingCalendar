@@ -135,7 +135,7 @@ Rows read `time • duration • name • category`, with the category's colour 
 
 ![One row broken down: start–end, duration, block name, colour chip with category, overlap badge](docs/ui-menu-row.png)
 
-The rows are for reading: they highlight under the pointer so a long list stays followable, but a click does nothing rather than closing the menu.
+The rows are for reading: they highlight under the pointer so a long list stays followable, but a click does nothing rather than closing the menu. The highlight is **yellow rather than the system's selection blue** — blue means *selected*, and nothing here can be selected, so borrowing it would promise something the row can't deliver. It's a highlighter marking your place. Light mode gets a proper highlighter yellow behind dark text; dark mode a much fainter wash, since the text there is near-white and a solid band would drown it. The actionable rows elsewhere in the menu keep the blue, where the promise is true.
 
 Every column lines up exactly, which takes three things: hours are zero-padded; times and durations use **tabular figures**, since SF's default digits are proportional and `1` is narrower than the rest; and each field sits on a **tab stop** measured from the widest time and duration in the list.
 
