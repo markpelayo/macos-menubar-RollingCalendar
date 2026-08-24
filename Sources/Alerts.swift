@@ -18,22 +18,25 @@ enum Alerts {
     /// one minute to actually move.
     static var leads: [Int] {
         if let stored = UserDefaults.standard.array(forKey: "alertLeads") as? [Int] {
-            return stored.filter { $0 > 0 }.sorted(by: >)
+            // Zero is a real choice — "tell me as it starts" — so only negatives
+            // are thrown out. Empty still means off.
+            return stored.filter { $0 >= 0 }.sorted(by: >)
         }
         // Up to 1.1.0 there was one lead time under a different key.
         let legacy = UserDefaults.standard.integer(forKey: "alertLead")
         return legacy > 0 ? [legacy] : []
     }
 
-    /// The three obvious choices; anything else comes from Add Custom…
+    /// The obvious choices; anything else comes from Add Custom…
     static let leadPresets: [(title: String, seconds: Int)] = [
+        ("When it starts", 0),
         ("1 minute before", 60),
         ("5 minutes before", 300),
         ("10 minutes before", 600)
     ]
 
     static func setLeads(_ list: [Int]) {
-        let clean = Array(Set(list.filter { $0 > 0 })).sorted(by: >)
+        let clean = Array(Set(list.filter { $0 >= 0 })).sorted(by: >)
         UserDefaults.standard.set(clean, forKey: "alertLeads")
         UserDefaults.standard.removeObject(forKey: "alertLead")
         fired.removeAll()   // a change of lead times means nothing counts as announced
@@ -64,6 +67,7 @@ enum Alerts {
     /// "1 minute", "5 minutes", "90 seconds" — used in the menu and spoken aloud,
     /// so the two can never disagree.
     static func leadPhrase(_ seconds: Int) -> String {
+        if seconds == 0 { return "when it starts" }
         if seconds % 60 == 0 {
             let minutes = seconds / 60
             return minutes == 1 ? "1 minute" : "\(minutes) minutes"
@@ -105,6 +109,7 @@ enum Alerts {
 
     /// Compact form for the summary: "10m", "90s", "2h".
     static func shorthand(_ seconds: Int) -> String {
+        if seconds == 0 { return "at start" }
         if seconds % 3600 == 0 { return "\(seconds / 3600)h" }
         if seconds % 60 == 0 { return "\(seconds / 60)m" }
         return "\(seconds)s"
@@ -123,7 +128,7 @@ enum Alerts {
     /// The whole configuration on one line, for the parent menu item:
     /// "Time Block Alerts: 5m | Voice — Daniel".
     static var summary: String {
-        guard isEnabled else { return "Time Block Alerts" }
+        guard isEnabled else { return "Time Block Alerts: Off" }
         // `voiceLabel` is enough for the summary; resolving the voice object
         // here would mean a second lookup on every menu click.
         let how = playsSound ? "Sound — \(soundName)" : "Voice — \(voiceLabel)"
@@ -495,7 +500,9 @@ enum Alerts {
         var due: [(name: String, lead: Int)] = []
         for event in events where !event.isAllDay {
             let seconds = event.start.timeIntervalSince(now)
-            guard seconds > 0, seconds <= horizon else { continue }
+            // A lead of zero fires *as* the block begins, so the window has to
+            // reach a little past the start rather than stopping at it.
+            guard seconds > -catchUpTolerance, seconds <= horizon else { continue }
             guard includes(event, in: chosen) else { continue }
 
             for lead in leads where seconds <= TimeInterval(lead) {
@@ -528,7 +535,10 @@ enum Alerts {
     /// Sound first, then speech: a chime under a sentence makes both harder to
     /// make out.
     private static func announce(_ names: [String], lead: Int, aloud: Bool = true) {
-        let phrase = "\(leadPhrase(lead)) before \(list(names))"
+        // "5 minutes before Focus Work", or simply "Focus Work, starting now".
+        let phrase = lead == 0
+            ? "\(list(names)), starting now"
+            : "\(leadPhrase(lead)) before \(list(names))"
 
         if aloud, playsSound { play(soundName) }
 
@@ -540,7 +550,8 @@ enum Alerts {
             synthesizer.speak(utterance)
         }
 
-        postBanner(title: "Starting in \(leadPhrase(lead))", body: list(names))
+        postBanner(title: lead == 0 ? "Starting now" : "Starting in \(leadPhrase(lead))",
+                   body: list(names))
     }
 
     /// "A", "A and B", "A, B and C" — spoken, so no Oxford comma.
@@ -617,8 +628,10 @@ enum Alerts {
     /// "Test Alert Now" — exactly what a real alert does, on a made-up block.
     static func test() {
         // The nearest lead time, since that's the one you'll hear most often.
-        let saidLead = leadPhrase(leads.min() ?? 60)
-        let phrase = "\(saidLead) before Focus Work"
+        let nearest = leads.min() ?? 60
+        let phrase = nearest == 0
+            ? "Focus Work, starting now"
+            : "\(leadPhrase(nearest)) before Focus Work"
         if playsSound { play(soundName) }
         if speaks {
             let utterance = AVSpeechUtterance(string: phrase)

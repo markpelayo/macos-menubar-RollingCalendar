@@ -876,7 +876,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sub.autoenablesItems = false
 
         // --- 1. when ---
-        let when = NSMenuItem(title: "Alert Me Before: \(Alerts.leadSummary)",
+        let when = NSMenuItem(title: "Alert Me: \(Alerts.leadSummary)",
                               action: nil, keyEquivalent: "")
         when.submenu = alertLeadMenu()
         alertLeadItem = when
@@ -936,7 +936,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         chimeItem?.title = Westminster.menuTitle
             + (Westminster.mode == .off ? "" : Self.quietSuffix)
         chimeVolumeItem?.title = "Volume: \(Westminster.volumePercent)%"
-        alertLeadItem?.title = "Alert Me Before: \(Alerts.leadSummary)"
+        alertLeadItem?.title = "Alert Me: \(Alerts.leadSummary)"
 
         alertSoundItem?.title = "Alert Sound: \(Alerts.playsSound ? Alerts.soundName : "Off")"
         alertSoundItem?.isEnabled = Alerts.hasLead
@@ -998,7 +998,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !customs.isEmpty {
             sub.addItem(.separator())
             for seconds in customs {
-                sub.addItem(toggleRow("\(Alerts.leadPhrase(seconds)) before",
+                sub.addItem(toggleRow(seconds == 0
+                                        ? Alerts.leadPhrase(0).capitalized
+                                        : "\(Alerts.leadPhrase(seconds)) before",
                                       isOn: { Alerts.leads.contains(seconds) },
                                       toolTip: "Your own lead time — the ✕ deletes it",
                                       remove: { Alerts.removeLead(seconds) }) {
