@@ -3,11 +3,11 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform: macOS 13+](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey)](#quick-start)
 [![Status: in development](https://img.shields.io/badge/status-in%20development-orange)](#known-limitations)
-[![Release: v1.3.1](https://img.shields.io/badge/release-v1.3.1-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
+[![Release: v1.4.0](https://img.shields.io/badge/release-v1.4.0-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
 
 A macOS menu bar app that draws today's calendar as a horizontal timeline scrolling past a fixed "now" marker. Instead of asking *what time is my next thing*, you glance up and see where you are.
 
-> **Status: in development.** Working and usable — [v1.3.1](CHANGELOG.md) is the current release — but rough edges remain, see [Known limitations](#known-limitations). Behaviour, defaults and stored preferences may change without migration.
+> **Status: in development.** Working and usable — [v1.4.0](CHANGELOG.md) is the current release — but rough edges remain, see [Known limitations](#known-limitations). Behaviour, defaults and stored preferences may change without migration.
 
 ## The UI
 
@@ -60,7 +60,7 @@ chmod +x build.sh
 open build/RollingCalendar.app
 ```
 
-Needs macOS 13+ and Xcode Command Line Tools (`xcode-select --install`) for `swiftc`. No packages, no dependencies, no Xcode project — one shell script and eleven Swift files.
+Needs macOS 13+ and Xcode Command Line Tools (`xcode-select --install`) for `swiftc`. No packages, no dependencies, no Xcode project — one shell script and twelve Swift files.
 
 **It starts in Demo Mode**, showing a realistic time-blocked day, so you can see it working before connecting anything. Click the strip → **Demo Mode** to turn that off once you've set up a real calendar.
 
@@ -250,6 +250,35 @@ Because it starts and ends on sleep, it also exercises the dropdown's [sleep-to-
 
 The [`examples/`](examples/) folder has importable `.ics` files built on the same grid. They use floating local times, so they land on correct quarter-hours in any time zone. See [examples/README.md](examples/README.md).
 
+## Sound Hours
+
+Both the alerts and the chime ask one question before making any noise: *am I allowed to, at this hour?* **Sound Hours** is that answer, and it sits above them both in the menu, because "don't wake me at 3 a.m." is a single thought and shouldn't have to be expressed twice.
+
+```
+✓ Sound Hours: 11:30 AM – 4:30 AM ▸   Off
+                                      ───────────────────
+                                    ✓ 11:30 AM – 4:30 AM
+                                      6:00 AM – 11:00 PM
+                                      All day
+                                      ───────────────────
+                                    ✓ 8:00 AM – 1:00 PM      ← your own
+                                    ✓ 7:00 PM – 10:00 PM
+                                      Add Custom…
+```
+
+- **11:30 AM – 4:30 AM** is the default. A window may run **past midnight** — that one is seventeen hours, not a mistake — and the wrap is handled rather than clamped at midnight.
+- **Windows are a set**, so a day split by an evening away from the desk is one setting: 8 AM–1 PM *and* 7 PM–10 PM, both ticked, nothing in between. **Add Custom…** appends rather than replacing, and your own windows sit alongside the presets where you can click them off again.
+- **Off** silences the alerts and the chime whatever their own settings say — one switch to stop the app making noise, without losing how you had them configured. It's two-way: clicking it again brings the schedule back, with the default window if you'd emptied the set. Clicking a window while Off turns it *on* rather than deleting it, since every row reads as unticked in that state.
+- **All day** is an explicit choice rather than the absence of one, so "no limit" and "nothing set" can't be confused. Switching off the last window is the same as Off, and says so, rather than leaving a ticked row above two features that can never fire.
+- **Both ends are included.** A window labelled 6:00 AM – 11:00 PM rings the eleven o'clock strike; an exclusive end would have silenced the very minute the label names.
+- Rows here don't dismiss the menu, the same as the lead times and categories.
+
+**Previews are exempt.** *Test Alert Now* and *Hear It* are things you asked for on purpose; refusing them because of the hour would look like a bug. Everything that fires on its own respects the schedule.
+
+**Only the noise is withheld.** Outside the window the alert check still runs, so its bookkeeping stays straight and a silent Notification Center banner can still appear — a schedule called Sound Hours shouldn't take away something that makes no sound. The chime has nothing to show, so it simply doesn't run. The two rows below also say **· quiet now** while they're waiting, so a ticked feature that can't currently make a noise admits it.
+
+Times are read the way people type them: `8`, `8am`, `6:30 PM`, `18:30`, `1830`, `11.30pm`.
+
 ## Time Block Alerts
 
 A heads-up shortly before a block starts — a system sound, the name spoken aloud, or both. Off until you set it up, and the menu is deliberately staged: **when**, then **how**, then **which blocks**. Each step stays greyed out until the one above it is answered, and the parent item is ticked only once an alert could actually happen.
@@ -407,6 +436,7 @@ Most of it is in the menu — click the strip:
 | **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
 | **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 360 pt, about 47 characters) |
 | **Restore Defaults** | Back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Greyed out when nothing has been changed |
+| **Sound Hours ▸** | The hours in which the alerts and the chime may sound — several windows, midnight wrap allowed (default 11:30 AM – 4:30 AM) |
 | **Westminster Chime ▸** | The hour, or every quarter, on synthesised bells — with the hour counted out (**off** by default) |
 | **Time Block Alerts ▸** | A sound or the block name spoken, at one or more lead times before a block starts, for the categories you choose (**off** by default) |
 | **Refresh Now (⌘R)** | Re-reads the feed immediately instead of waiting for the five-minute timer |
@@ -463,6 +493,7 @@ Only today is loaded; other days are ignored, though events straddling midnight 
 | `Sources/KeywordRules.swift` | CSV import, keyword matching and longest-phrase precedence |
 | `Sources/Alerts.swift` | Lead times, alert sounds, speech voices and the category filter |
 | `Sources/Westminster.swift` | The quarter chime and hour strikes, synthesised from sine partials |
+| `Sources/SoundHours.swift` | The one schedule both the alerts and the chime ask before sounding |
 | `Sources/LoginItem.swift` | The LaunchAgent behind Run at Startup |
 | `Sources/ToggleRowView.swift` | Menu rows that toggle without dismissing the menu |
 | `Sources/DemoData.swift` | A realistic time-blocked day for Demo Mode, overlaps included |
@@ -519,13 +550,13 @@ Issues and pull requests are welcome. Keep it dependency-free and keep the idle 
 ## Releases
 
 Versions are tagged and described in [CHANGELOG.md](CHANGELOG.md), which is the only copy of the
-notes — `./release-notes.sh 1.3.1` prints one version's section for a release body. The same notes appear on the
+notes — `./release-notes.sh 1.4.0` prints one version's section for a release body. The same notes appear on the
 [releases page](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases). Each release
 carries source only — no app bundle, for the notarisation reason above — so installing a given
 version means checking out its tag and running `./build.sh`:
 
 ```bash
-git checkout v1.3.1
+git checkout v1.4.0
 ./build.sh
 ```
 

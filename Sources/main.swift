@@ -345,6 +345,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// The alert rows whose titles depend on the settings below them. Held onto
     /// so a toggle can update them without closing and rebuilding the menu.
+    private weak var soundHoursItem: NSMenuItem?
+    private weak var chimeItem: NSMenuItem?
     private weak var alertsRootItem: NSMenuItem?
     private weak var alertLeadItem: NSMenuItem?
     private weak var alertSoundItem: NSMenuItem?
@@ -373,8 +375,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.timeline.needsDisplay = true
             // Same tick as the redraw: the clock is already being read, and a
             // second's resolution is plenty for a warning measured in minutes.
-            Alerts.check(self.menuEvents, now: Clock.now)
-            Westminster.check(now: Clock.now)
+            // One schedule for both. The alert check still runs outside those
+            // hours — it just doesn't make a noise, so its bookkeeping stays
+            // straight and a silent banner can still appear. The chime has
+            // nothing to show, so it simply doesn't run.
+            let now = Clock.now
+            let maySound = SoundHours.allows(now)
+            Alerts.check(self.menuEvents, now: now, maySound: maySound)
+            if maySound { Westminster.check(now: now) }
         }
         fetchTimer = Timer.scheduledTimer(withTimeInterval: Config.refetchInterval, repeats: true) { [weak self] _ in
             self?.fetch()
@@ -721,7 +729,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(saved)
         }
 
-        let alerts = NSMenuItem(title: Alerts.summary, action: nil, keyEquivalent: "")
+        // --- Sounds --- their own block, gated by one schedule
+        menu.addItem(.separator())
+
+        let hours = NSMenuItem(title: SoundHours.menuTitle, action: nil, keyEquivalent: "")
+        hours.submenu = soundHoursMenu()
+        hours.state = SoundHours.isArmed ? .on : .off
+        hours.toolTip = Self.soundHoursTip
+        soundHoursItem = hours
+        menu.addItem(hours)
+
+        let alerts = NSMenuItem(title: Alerts.summary + (Alerts.isEnabled ? Self.quietSuffix : ""),
+                                action: nil, keyEquivalent: "")
         alertsRootItem = alerts
         alerts.submenu = alertsMenu()
         // Ticked only when an alert could actually happen: a lead time, and at
@@ -732,7 +751,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             : "Off — choose when to be told, then how"
         menu.addItem(alerts)
 
-        let chime = NSMenuItem(title: Westminster.menuTitle, action: nil, keyEquivalent: "")
+        let chime = NSMenuItem(
+            title: Westminster.menuTitle + (Westminster.mode == .off ? "" : Self.quietSuffix),
+            action: nil, keyEquivalent: "")
+        chimeItem = chime
         chime.submenu = chimeMenu()
         chime.state = Westminster.mode == .off ? .off : .on
         chime.toolTip = "The Westminster Quarters — the tune Big Ben plays"
@@ -827,9 +849,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Repaints the rows that summarise the alert settings. Called after a toggle
     /// that deliberately left the menu open, so what's on screen keeps up without
     /// the menu being rebuilt underneath the pointer.
+    /// Whether a sound could happen this minute, said in words.
+    private static var soundHoursTip: String {
+        guard SoundHours.isArmed else { return "Nothing will sound at any hour" }
+        return SoundHours.allows(Clock.now)
+            ? "Sounds are allowed right now"
+            : "Quiet at this hour — the alerts and the chime are waiting"
+    }
+
+    /// Appended to the two rows below, so a ticked feature that can't currently
+    /// make a noise says as much.
+    private static var quietSuffix: String {
+        SoundHours.allows(Clock.now) ? "" : "  ·  quiet now"
+    }
+
     private func refreshAlertTitles() {
-        alertsRootItem?.title = Alerts.summary
+        soundHoursItem?.title = SoundHours.menuTitle
+        soundHoursItem?.state = SoundHours.isArmed ? .on : .off
+        soundHoursItem?.toolTip = Self.soundHoursTip
+        alertsRootItem?.title = Alerts.summary + (Alerts.isEnabled ? Self.quietSuffix : "")
         alertsRootItem?.state = Alerts.isEnabled ? .on : .off
+        chimeItem?.title = Westminster.menuTitle
+            + (Westminster.mode == .off ? "" : Self.quietSuffix)
         alertLeadItem?.title = "Alert Me Before: \(Alerts.leadSummary)"
 
         alertSoundItem?.title = "Alert Sound: \(Alerts.playsSound ? Alerts.soundName : "Off")"
@@ -1004,6 +1045,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 sub.addItem(item)
             }
         }
+        return sub
+    }
+
+    /// When the app may make a noise at all. Windows are toggles, so a split day
+    /// — mornings and evenings, nothing in between — is one setting rather than a
+    /// compromise, and the menu stays open while you build it.
+    private func soundHoursMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        // Two-way: clicking Off again brings the schedule back, with the default
+        // window if the set was emptied.
+        sub.addItem(toggleRow("Off", isOn: { !SoundHours.isArmed },
+                              toolTip: "Silences the alerts and the chime, whatever their own "
+                                     + "settings say") {
+            if SoundHours.isArmed { SoundHours.disable() } else { SoundHours.enable() }
+        })
+        sub.addItem(.separator())
+
+        for window in SoundHours.presets {
+            sub.addItem(toggleRow(window.title,
+                                  isOn: { SoundHours.isArmed
+                                          && SoundHours.windows.contains(window) }) {
+                SoundHours.toggle(window)
+            })
+        }
+
+        sub.addItem(toggleRow("All day",
+                              isOn: { SoundHours.isArmed
+                                      && SoundHours.windows.contains(SoundHours.allDay) },
+                              toolTip: "No limit — sounds are allowed at any hour") {
+            SoundHours.toggle(SoundHours.allDay)
+        })
+
+        // Your own windows, alongside the presets rather than hidden behind the
+        // row that created them.
+        let known = SoundHours.presets + [SoundHours.allDay]
+        let mine = SoundHours.windows.filter { !known.contains($0) }
+        if !mine.isEmpty {
+            sub.addItem(.separator())
+            for window in mine {
+                sub.addItem(toggleRow(window.title,
+                                      isOn: { SoundHours.isArmed
+                                              && SoundHours.windows.contains(window) },
+                                      toolTip: "Your own window — click to remove it") {
+                    SoundHours.toggle(window)
+                })
+            }
+        }
+
+        sub.addItem(.separator())
+        add("Add Custom…", #selector(addSoundWindow), to: sub)
+        addNote("A window may run past midnight, and several may be open at once", to: sub)
         return sub
     }
 
@@ -1711,6 +1805,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func testAlert() { Alerts.test() }
+
+    /// From and to, in whatever form people type times: "6", "6am", "6:30 PM",
+    /// "18:30", "1830".
+    @objc private func addSoundWindow() {
+        menu.cancelTracking()
+        NSApp.activate(ignoringOtherApps: true)
+
+        let alert = NSAlert()
+        alert.messageText = "Add Sound Hours"
+        alert.informativeText = "Between which times may the alerts and the chime sound? "
+            + "A window may run past midnight — 10 PM to 2 AM is two hours, not twenty-two — and "
+            + "it's added to the windows already chosen."
+        alert.addButton(withTitle: "Add")
+        alert.addButton(withTitle: "Cancel")
+
+        // Same geometry as the Add Calendar sheet, so the two dialogs match.
+        let box = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 66))
+        let fromField = NSTextField(frame: NSRect(x: 62, y: 38, width: 230, height: 24))
+        let toField = NSTextField(frame: NSRect(x: 62, y: 4, width: 230, height: 24))
+        fromField.placeholderString = "8:00 AM"
+        toField.placeholderString = "1:00 PM"
+        box.addSubview(Self.fieldLabel("From", y: 42, width: 58))
+        box.addSubview(fromField)
+        box.addSubview(Self.fieldLabel("To", y: 8, width: 58))
+        box.addSubview(toField)
+        alert.accessoryView = box
+        alert.window.initialFirstResponder = fromField
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard let start = SoundHours.parse(fromField.stringValue),
+              let end = SoundHours.parse(toField.stringValue) else {
+            showError("Couldn\u{2019}t read those times",
+                      "Try something like 8:00 AM, 20:30, or 8pm.")
+            return
+        }
+        guard start != end else {
+            showError("That window has no length",
+                      "The start and the end are the same time. For no limit at all, "
+                    + "use “All day”.")
+            return
+        }
+        SoundHours.add(SoundHours.Window(start: start, end: end))
+    }
 
     @objc private func chooseChimeMode(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String,

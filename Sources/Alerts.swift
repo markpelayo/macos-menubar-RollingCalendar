@@ -474,7 +474,10 @@ enum Alerts {
 
     /// Called every tick. Announces anything whose start is now within the lead
     /// time, once, and only for categories still switched on.
-    static func check(_ events: [CalEvent], now: Date) {
+    /// `maySound` is Sound Hours' answer. False still runs the bookkeeping and
+    /// still posts a banner — it only withholds the noise, which is the one thing
+    /// a schedule called Sound Hours should withhold.
+    static func check(_ events: [CalEvent], now: Date, maySound: Bool = true) {
         guard isEnabled else { return }
         let leads = self.leads
         guard let longest = leads.first else { return }
@@ -504,7 +507,8 @@ enum Alerts {
         // If two lead times land in the same tick — a block 5 minutes out when
         // 5m and 10m are both set, say — the nearer one is the honest number.
         guard let nearest = due.map({ $0.lead }).min() else { return }
-        announce(due.filter { $0.lead == nearest }.map { $0.name }, lead: nearest)
+        announce(due.filter { $0.lead == nearest }.map { $0.name }, lead: nearest,
+                 aloud: maySound)
     }
 
     /// Everything before the first pipe: "Focus Work | Learn" is spoken as
@@ -517,12 +521,12 @@ enum Alerts {
 
     /// Sound first, then speech: a chime under a sentence makes both harder to
     /// make out.
-    private static func announce(_ names: [String], lead: Int) {
+    private static func announce(_ names: [String], lead: Int, aloud: Bool = true) {
         let phrase = "\(leadPhrase(lead)) before \(list(names))"
 
-        if playsSound { play(soundName) }
+        if aloud, playsSound { play(soundName) }
 
-        if speaks {
+        if aloud, speaks {
             let utterance = AVSpeechUtterance(string: phrase)
             utterance.voice = resolvedVoice()
             // A beat after the chime, so the two don't overlap.

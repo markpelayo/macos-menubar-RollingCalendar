@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-08-22
+
+### Added
+
+- **Sound Hours** — one schedule that both Time Block Alerts and the Westminster Chime ask before
+  making any noise, in its own block above them in the menu. Windows are a set rather than a choice,
+  so a split day (8 AM–1 PM and 7 PM–10 PM) is one setting; a window may run past midnight; **Off**
+  silences both features without disturbing how either is configured; **All day** is an explicit
+  choice so "no limit" can't be confused with "nothing set". The default is **11:30 AM – 4:30 AM**.
+- Custom windows are typed in whatever form comes naturally — `8`, `8am`, `6:30 PM`, `18:30`, `1830`,
+  `11.30pm` — and are added to the existing windows rather than replacing them.
+
+### Changed
+
+- The sound features now sit in their own section below **Saved Calendars**: Sound Hours, then Time
+  Block Alerts, then Westminster Chime.
+- *Test Alert Now* and *Hear It* deliberately ignore Sound Hours: a preview you asked for should
+  never be refused because of the hour.
+- Outside the window the alert check still runs and a silent Notification Center banner can still be
+  posted — only the sound and the speech are withheld. The Time Block Alerts and Westminster Chime
+  rows read **· quiet now** while they're waiting, rather than looking armed and staying silent.
+
 ## [1.3.1] — 2026-08-22
 
 Internal only: no new features, nothing moved in the menu, no settings changed.
@@ -177,6 +199,7 @@ First public release.
 - Recurring events are handled for a common subset of RFC 5545 — `RRULE` with `FREQ`, `INTERVAL`,
   `COUNT`, `UNTIL`, `BYDAY`, plus `EXDATE` and `RECURRENCE-ID` overrides.
 
+[1.4.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.4.0
 [1.3.1]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.3.1
 [1.3.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.3.0
 [1.2.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.2.0
