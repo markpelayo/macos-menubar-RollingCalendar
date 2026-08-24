@@ -57,7 +57,9 @@ The week number is **ISO 8601**, so "Week 35" means the same thing to anyone rea
 
 ![The appearance section: Time Range, Timeline Width, Labels, Label Length, Keyword Colors, Restore Defaults](docs/ui-menu-appearance.png)
 
-**Refresh Now (⌘R)** re-reads the feed immediately rather than waiting for the five-minute timer. It sits lower down now, beside the calendar it refreshes.
+**Refresh Now (⌘R)** re-reads the feed immediately rather than waiting for the five-minute timer, and says so: the row reads **Refreshing…** and greys out while the request is in flight, and the line above it reads **Updated just now** for the first minute afterwards. That line is relative — *just now*, *3 minutes ago*, then the clock time past an hour — because the question it answers is "is what I'm looking at current?", and a bare timestamp leaves you doing the arithmetic.
+
+**What it can and can't do.** It guarantees the app re-downloads the feed, bypassing any local cache. It can't make Google republish: a public `.ics` is regenerated on Google's own schedule, often minutes and sometimes hours after you edit an event. If a change isn't showing, the app already has the newest file being served — the delay is upstream. Left alone, the app re-reads every **five minutes**, and also at launch and on waking from sleep.
 
 ### 4 · Where the calendar comes from
 
@@ -497,7 +499,8 @@ Most of it is in the menu — click the strip:
 | **Sound Hours ▸** | The hours in which the alerts and the chime may sound — several windows, midnight wrap allowed (default 11:30 AM – 4:30 AM) |
 | **Time Block Alerts ▸** | A sound or the block name spoken, as a block starts or at one or more lead times before it, for the categories you choose (**off** by default) |
 | **Westminster Chime ▸** | The hour, or every quarter, on synthesised bells — with the hour counted out (**off** by default) |
-| **Refresh Now (⌘R)** | Re-reads the feed immediately instead of waiting for the five-minute timer |
+| **Refresh Now (⌘R)** | Re-reads the feed immediately instead of waiting for the five-minute timer. Reads **Refreshing…** while a request is in flight |
+| **Updated …** | How fresh the day is: *just now*, *3 minutes ago*, or the clock time once it's older than an hour |
 | **Run at Startup ▸** | Off, on, or on after a wait of 5–60 s (**off** by default) |
 | **Debug Time… / Reset to Current Time** | Move the whole app to another moment, and back — see [Debug Time](#debug-time) |
 | **Updated hh:mm:ss** | When the feed was last read successfully |

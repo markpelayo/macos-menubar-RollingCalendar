@@ -15,6 +15,9 @@ All notable changes to this project are documented here. The format follows
 - **Restore Defaults… leaves Sound Hours off**, matching the two features it gates rather than
   reading as armed above two silent rows. The first alert or chime switched on afterwards opens the
   default window again, so nobody is left silenced by a schedule they never set.
+- **Refresh Now says what it's doing.** The row reads **Refreshing…** and greys out while a request
+  is in flight, and the line above it is now relative — *Updated just now*, *3 minutes ago*, or the
+  clock time once it's older than an hour — so a click no longer leaves you wondering whether it took.
 - **One date line instead of two rows.** The date header now reads
   `Week 35 · Monday · August 24, 2026 · Demo Calendar (test data)`, with a red **❗Simulated❗** on the
   end when Debug Time has moved the clock — the same marker the strip uses. It's lighter and smaller

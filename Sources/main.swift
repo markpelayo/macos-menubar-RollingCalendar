@@ -558,6 +558,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Taken here rather than inside the feed path, so switching to the Demo Calendar
         // or clearing the calendar also invalidates a request already in flight.
         fetchGeneration += 1
+        isFetching = true
         if Config.demoMode {
             loadDemoEvents()
         } else {
@@ -629,6 +630,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuEvents = cycleEvents(all, now: Clock.now)
         alertEvents = all
         failingSince = nil
+        isFetching = false
         lastFetch = Date()
     }
 
@@ -708,6 +710,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuEvents = cycleEvents(all, now: Clock.now)
         alertEvents = all
         failingSince = nil
+        isFetching = false
         lastFetch = Date()
     }
 
@@ -877,12 +880,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // --- Reading the feed ---
         // Kept next to the calendar it refreshes, rather than up with the day.
-        if let lastFetch {
-            let updated = Self.updatedFormatter
-            updated.timeZone = Config.displayTimeZone
-            addInfo("Updated \(updated.string(from: lastFetch))", to: menu)
-        }
-        add("Refresh Now", #selector(refreshNow), to: menu, key: "r")
+        addInfo(freshnessCaption(), to: menu)
+
+        let refresh = add(isFetching ? "Refreshing…" : "Refresh Now",
+                          #selector(refreshNow), to: menu, key: "r")
+        refresh.isEnabled = !isFetching
+        refresh.toolTip = isFetching
+            ? "Already asking the calendar for its latest version"
+            : "Ask now instead of waiting for the five-minute timer"
 
         // --- Launching at login ---
         // Its own block: nothing to do with refreshing the feed above it.
@@ -1783,6 +1788,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return f
     }()
 
+    /// "Refreshing…", "Updated just now", "Updated 3 minutes ago", or the clock
+    /// time once it's older than an hour.
+    ///
+    /// Relative rather than absolute, because the question this line answers is
+    /// "is what I'm looking at current?" — and "1:39 PM" leaves you to do the
+    /// arithmetic yourself.
+    private func freshnessCaption() -> String {
+        if isFetching { return "Refreshing…" }
+        guard let lastFetch else { return "Not read yet" }
+
+        let age = Date().timeIntervalSince(lastFetch)
+        if age < 60 { return "Updated just now" }
+        if age < 3600 {
+            let minutes = Int(age / 60)
+            return minutes == 1 ? "Updated a minute ago" : "Updated \(minutes) minutes ago"
+        }
+        let updated = Self.updatedFormatter
+        updated.timeZone = Config.displayTimeZone
+        return "Updated at \(updated.string(from: lastFetch))"
+    }
+
     /// A dim, unclickable line of explanation at the foot of a submenu.
     private func addNote(_ text: String, to menu: NSMenu) {
         menu.addItem(.separator())
@@ -2557,6 +2583,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// the blocks and the alerts still fire from them. After half an hour of
     /// failures the data really is unknown, and it goes.
     private func showFailure(_ message: String) {
+        isFetching = false
         let firstFailure = failingSince ?? Date()
         failingSince = firstFailure
         if Date().timeIntervalSince(firstFailure) > 1800 || timeline.events.isEmpty {
