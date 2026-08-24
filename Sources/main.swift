@@ -736,7 +736,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let hours = NSMenuItem(title: SoundHours.menuTitle, action: nil, keyEquivalent: "")
         hours.submenu = soundHoursMenu()
         hours.state = SoundHours.isArmed ? .on : .off
-        hours.toolTip = Self.soundHoursTip
         soundHoursItem = hours
         menu.addItem(hours)
 
@@ -747,9 +746,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Ticked only when an alert could actually happen: a lead time, and at
         // least one of sound or speech.
         alerts.state = Alerts.isEnabled ? .on : .off
-        alerts.toolTip = Alerts.isEnabled
-            ? "\(Alerts.leadSummary) before a block starts"
-            : "Off — choose when to be told, then how"
         menu.addItem(alerts)
 
         let chime = NSMenuItem(
@@ -758,7 +754,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         chimeItem = chime
         chime.submenu = chimeMenu()
         chime.state = Westminster.mode == .off ? .off : .on
-        chime.toolTip = "The Westminster Quarters — the tune Big Ben plays"
         menu.addItem(chime)
 
         menu.addItem(.separator())
@@ -780,9 +775,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Ticked whenever it will launch at login, delay or not, so the state
         // reads at a glance the way Demo Mode and Saved Calendars do.
         startup.state = LoginItem.isEnabled ? .on : .off
-        startup.toolTip = LoginItem.isInApplications
-            ? "Launch when you log in, as a LaunchAgent"
-            : "Points at the app where it is now — moving the folder will break it"
         menu.addItem(startup)
 
         menu.addItem(.separator())
@@ -811,7 +803,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sound.submenu = alertSoundMenu()
         alertSoundItem = sound
         sound.isEnabled = Alerts.hasLead
-        sound.toolTip = Alerts.hasLead ? "Choosing a sound plays it" : "Choose a lead time first"
         sub.addItem(sound)
 
         let voice = NSMenuItem(title: "Voice Sound: \(Alerts.voiceLabel)",
@@ -819,9 +810,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         voice.submenu = alertVoiceMenu()
         alertVoiceItem = voice
         voice.isEnabled = Alerts.hasLead
-        voice.toolTip = Alerts.hasLead
-            ? "Says “\(Alerts.leadPhrase(Alerts.leads.min() ?? 60)) before Focus Work”"
-            : "Choose a lead time first"
         sub.addItem(voice)
 
         // --- 3. which blocks ---
@@ -833,9 +821,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         categories.submenu = alertCategoryMenu()
         alertCategoryItem = categories
         categories.isEnabled = Alerts.isEnabled
-        categories.toolTip = Alerts.isEnabled
-            ? "Only blocks in these categories are announced"
-            : "Choose a lead time and a sound or voice first"
         sub.addItem(categories)
 
         sub.addItem(.separator())
@@ -850,14 +835,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Repaints the rows that summarise the alert settings. Called after a toggle
     /// that deliberately left the menu open, so what's on screen keeps up without
     /// the menu being rebuilt underneath the pointer.
-    /// Whether a sound could happen this minute, said in words.
-    private static var soundHoursTip: String {
-        guard SoundHours.isArmed else { return "Nothing will sound at any hour" }
-        return SoundHours.allows(Clock.now)
-            ? "Sounds are allowed right now"
-            : "Quiet at this hour — the alerts and the chime are waiting"
-    }
-
     /// Appended to the two rows below, so a ticked feature that can't currently
     /// make a noise says as much.
     private static var quietSuffix: String {
@@ -867,7 +844,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func refreshAlertTitles() {
         soundHoursItem?.title = SoundHours.menuTitle
         soundHoursItem?.state = SoundHours.isArmed ? .on : .off
-        soundHoursItem?.toolTip = Self.soundHoursTip
         alertsRootItem?.title = Alerts.summary + (Alerts.isEnabled ? Self.quietSuffix : "")
         alertsRootItem?.state = Alerts.isEnabled ? .on : .off
         chimeItem?.title = Westminster.menuTitle
@@ -1036,8 +1012,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sub.addItem(.separator())
         let premium = NSMenuItem(title: "Premium Voices", action: nil, keyEquivalent: "")
         premium.submenu = premiumVoiceMenu()
-        premium.toolTip = "Apple's neural voices — a free download, far more natural than the "
-            + "voices that ship with macOS"
         sub.addItem(premium)
 
         // Anything Enhanced or Premium that's installed but not in that

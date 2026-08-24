@@ -25,6 +25,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **Tooltips no longer cover the submenu they belong to.** Hovering Time Block Alerts, Sound Hours,
+  Westminster Chime — or Alert Sound, Voice Sound, Categories, Run at Startup — popped a description
+  over the very options it was describing. Every row that opens a submenu now says what it needs to in
+  its own title, which it already did.
 - Row buttons — the ✕ on a custom row, the pencil and ✕ on a saved calendar — sat wherever that row's
   own text ended, which could be halfway across a menu made wider by a longer item or a footnote.
   Custom rows are now stretched to the menu's real width, so every button lines up on the right edge.
