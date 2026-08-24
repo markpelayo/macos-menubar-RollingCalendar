@@ -434,6 +434,8 @@ Restore everything to defaults?
   •  2 saved calendars: removed, leaving Demo Calendar
 ```
 
+**Greyed out when there's nothing to restore**, the same courtesy *Restore Strip Settings* pays. That's asked of each feature in turn — the strip, the calendar, the colours, the alerts, the chime, Sound Hours, Run at Startup, Debug Time — rather than by checking whether any preferences are stored: a first launch writes keys of its own, so "nothing stored" and "nothing changed" aren't the same question.
+
 It removes the whole preference domain rather than a list of keys, so a setting added in some later version can't be left behind by an out-of-date list, and it deletes the LaunchAgent explicitly — that's a file rather than a preference, and would otherwise go on launching an app that has forgotten it asked. **Cancel is the default button**, since Return should not be the fast path to a wipe.
 
 **Sound Hours ends up Off too**, so the gate doesn't read as armed above two features that are silent. The first alert or chime you switch on afterwards opens the default window again — being silenced by a schedule you never set would look like the alert was broken. Switching the schedule Off yourself is respected from then on.
@@ -499,7 +501,7 @@ Most of it is in the menu — click the strip:
 | **Run at Startup ▸** | Off, on, or on after a wait of 5–60 s (**off** by default) |
 | **Debug Time… / Reset to Current Time** | Move the whole app to another moment, and back — see [Debug Time](#debug-time) |
 | **Updated hh:mm:ss** | When the feed was last read successfully |
-| **Restore Defaults…** | A factory reset, confirmed first: every setting forgotten, saved calendars removed, back to Demo Calendar |
+| **Restore Defaults…** | A factory reset, confirmed first: every setting forgotten, saved calendars removed, back to Demo Calendar. Greyed out when everything already is at its defaults |
 | **Quit (⌘Q)** | Leaves nothing behind: no helper, and no login item unless you added one |
 
 The first row of the menu — `macos-menubar-RollingCalendar 1.4.1 · by markpelayo` — opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar). The version is read from the app bundle, so it always names the build you're running.

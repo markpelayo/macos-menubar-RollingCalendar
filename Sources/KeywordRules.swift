@@ -48,6 +48,12 @@ enum KeywordRules {
     /// File the rules came from, for the menu.
     static var sourceName: String? { UserDefaults.standard.string(forKey: sourceKey) }
 
+    static let sampleSourceName = "the built-in sample"
+
+    /// True when the rules are the ones a fresh launch would have seeded, so
+    /// "everything is at its defaults" can be asked as one question.
+    static var isSample: Bool { sourceName == sampleSourceName }
+
     static func save(_ list: [KeywordRule], from source: String) {
         UserDefaults.standard.set(prioritised(list).map {
             ["category": $0.category, "name": $0.colorName, "hex": $0.colorHex, "keyword": $0.keyword]
@@ -72,7 +78,7 @@ enum KeywordRules {
         guard rules.isEmpty else { return }
         let result = parse(csv: sampleCSV)
         guard result.problem == nil, !result.rules.isEmpty else { return }
-        save(result.rules, from: "the built-in sample")
+        save(result.rules, from: sampleSourceName)
     }
 
     /// Categories in the order they first appear, for the menu.

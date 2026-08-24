@@ -144,6 +144,14 @@ enum SoundHours {
     /// row reflects.
     static var isArmed: Bool { isEnabled && !windows.isEmpty }
 
+    /// True when the schedule has never been configured — whether that leaves it
+    /// at its default window (a fresh launch) or switched off (just after a
+    /// reset). Either way there is nothing here to restore.
+    static var isUntouched: Bool {
+        let stored = UserDefaults.standard.stringArray(forKey: "soundHours")
+        return stored == nil
+    }
+
     /// Called when an alert or the chime is switched on.
     ///
     /// A reset leaves this Off, so that the gate doesn't read as armed above two

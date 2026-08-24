@@ -175,6 +175,36 @@ enum Config {
             && labelKeys.allSatisfy { flag($0) }
     }
 
+    /// True when every setting the app owns already matches a fresh launch, so
+    /// the reset at the foot of the menu can grey itself out rather than offering
+    /// to change nothing — the same courtesy Restore Strip Settings pays.
+    ///
+    /// Deliberately asked of each feature in turn rather than by comparing the
+    /// preference domain: a first launch writes keys of its own (the sample
+    /// colours, and the flag that says they've been seeded), so "no keys stored"
+    /// and "nothing changed" are not the same question.
+    static var isEverythingDefault: Bool {
+        // The strip
+        guard isAppearanceDefault, debugOffset == 0 else { return false }
+        // The calendar
+        guard profiles.isEmpty, demoMode else { return false }
+        // Colours
+        guard KeywordRules.isSample else { return false }
+        // Sounds
+        guard !Alerts.hasLead, !Alerts.playsSound, !Alerts.speaks,
+              Alerts.isEveryCategory,
+              Alerts.soundName == Alerts.defaultSound,
+              Alerts.voiceKey == Alerts.defaultVoiceKey else { return false }
+        guard Westminster.mode == .off, Westminster.strikesHour,
+              Westminster.volumePercent == 50, Westminster.customVolumes.isEmpty
+        else { return false }
+        // A reset leaves the schedule off and untouched; a fresh launch leaves it
+        // untouched and therefore at its default window. Both count.
+        guard SoundHours.isUntouched else { return false }
+        // Launching at login
+        return !LoginItem.isEnabled
+    }
+
     /// Everything the app has ever stored, forgotten — the whole preference
     /// domain rather than a list of keys, so a setting added later can't be left
     /// behind by an out-of-date list.
@@ -869,7 +899,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // of the two names and by far the heavier action, so the promise of a
         // dialog is doing real work.
         menu.addItem(.separator())
-        add("Restore Defaults…", #selector(resetEverything), to: menu)
+        let reset = add("Restore Defaults…", #selector(resetEverything), to: menu)
+        reset.isEnabled = !Config.isEverythingDefault
+        reset.toolTip = reset.isEnabled
+            ? "Forget every setting and start again as though freshly built"
+            : "Everything is already at its defaults"
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))

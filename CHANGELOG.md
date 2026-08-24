@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Restore Defaults… is greyed out when everything is already at its defaults**, matching Restore
+  Strip Settings. It asks each feature in turn rather than checking whether any preferences exist,
+  since a first launch writes keys of its own — "nothing stored" and "nothing changed" are different
+  questions.
 - **Restore Defaults… leaves Sound Hours off**, matching the two features it gates rather than
   reading as armed above two silent rows. The first alert or chime switched on afterwards opens the
   default window again, so nobody is left silenced by a schedule they never set.
