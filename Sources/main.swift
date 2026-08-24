@@ -418,6 +418,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Tickets for in-flight fetches, and when the current run of failures began.
     private var fetchGeneration = 0
     private var failingSince: Date?
+    /// True from the moment a fetch starts until it lands, so the menu can say
+    /// "Refreshing…" rather than leaving you to wonder whether the click took.
+    private var isFetching = false
     /// What the alerts watch: the day's events, not the dropdown's anchor-to-
     /// anchor cycle, which stops at the next sleep block and would leave a late
     /// evening unannounced.
