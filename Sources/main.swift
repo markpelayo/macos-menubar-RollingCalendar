@@ -999,7 +999,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let seconds = preset.seconds
             sub.addItem(toggleRow(preset.title, isOn: { Alerts.leads.contains(seconds) }) {
                 Alerts.toggleLead(seconds)
-                if Alerts.hasLead { Alerts.requestNotificationPermissionIfNeeded() }
+                if Alerts.hasLead {
+                    SoundHours.armIfUntouched()
+                    Alerts.requestNotificationPermissionIfNeeded()
+                }
             })
         }
 
@@ -1719,11 +1722,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             source = "No calendar yet"
         }
 
-        let font = NSFont.menuFont(ofSize: NSFont.smallSystemFontSize)
+        // The menu's own size rather than the small system size, and secondary
+        // rather than tertiary: it's a caption, but one that has to be read at a
+        // glance. Tertiary at 11 pt was legible in theory and squinted at in
+        // practice.
+        let font = NSFont.menuFont(ofSize: 0)
         let text = NSMutableAttributedString(
             string: "Week \(week)  ·  \(weekday.string(from: now))  ·  "
                   + "\(date.string(from: now))  ·  \(source)",
-            attributes: [.font: font, .foregroundColor: NSColor.tertiaryLabelColor])
+            attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor])
 
         if Config.isSimulating {
             text.append(NSAttributedString(
@@ -1908,7 +1915,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         •  The strip: ± 1 hour across 250 pt, all labels on
         •  Keyword colours: back to the built-in sample
-        •  Sounds: alerts and chime off, Sound Hours 11:30 AM – 4:30 AM
+        •  Sounds: alerts off, chime off, Sound Hours off
         •  Run at Startup: off, and the login item removed
         •  Debug Time: cleared
         •  \(calendars): removed, leaving the Demo Calendar
@@ -1925,6 +1932,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
         Config.resetEverything()
+        // The two features this gates are off after a reset, so the gate says so
+        // too rather than reading as armed above two silent rows.
+        SoundHours.disable()
         KeywordRules.clear()
         KeywordRules.seedSampleRulesIfFirstRun()
         Alerts.forgetAnnounced()
@@ -2081,7 +2091,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let raw = sender.representedObject as? String,
               let mode = Westminster.Mode(rawValue: raw) else { return }
         Westminster.setMode(mode)
-        if mode == .off { Westminster.stop() }
+        if mode == .off { Westminster.stop() } else { SoundHours.armIfUntouched() }
     }
 
     @objc private func toggleChimeStrikes() {

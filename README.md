@@ -37,7 +37,7 @@ The screenshots below are of the real menu, and cover it in four parts. They pre
 
 ### 1 · The date line
 
-The day, the week and the source in one caption, lighter and smaller than the rows beneath it — it's context, and the blocks are what you came to read:
+The day, the week and the source in one caption, dimmer than the rows beneath it but at the same size — it's context rather than content, and still has to be readable at a glance:
 
 ```
 Week 35  ·  Monday  ·  August 24, 2026  ·  Demo Calendar (test data)  ·  ❗Simulated❗
@@ -428,13 +428,15 @@ Restore everything to defaults?
 
   •  The strip: ± 1 hour across 250 pt, all labels on
   •  Keyword colours: back to the built-in sample
-  •  Sounds: alerts and chime off, Sound Hours 11:30 AM – 4:30 AM
+  •  Sounds: alerts off, chime off, Sound Hours off
   •  Run at Startup: off, and the login item removed
   •  Debug Time: cleared
   •  2 saved calendars: removed, leaving Demo Calendar
 ```
 
 It removes the whole preference domain rather than a list of keys, so a setting added in some later version can't be left behind by an out-of-date list, and it deletes the LaunchAgent explicitly — that's a file rather than a preference, and would otherwise go on launching an app that has forgotten it asked. **Cancel is the default button**, since Return should not be the fast path to a wipe.
+
+**Sound Hours ends up Off too**, so the gate doesn't read as armed above two features that are silent. The first alert or chime you switch on afterwards opens the default window again — being silenced by a schedule you never set would look like the alert was broken. Switching the schedule Off yourself is respected from then on.
 
 **Your calendars themselves are untouched.** Only the links saved here are forgotten; nothing is ever written to a calendar. You'll be back in Demo Calendar, exactly as on a first launch.
 

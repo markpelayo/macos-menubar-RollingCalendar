@@ -8,10 +8,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Restore Defaults… leaves Sound Hours off**, matching the two features it gates rather than
+  reading as armed above two silent rows. The first alert or chime switched on afterwards opens the
+  default window again, so nobody is left silenced by a schedule they never set.
 - **One date line instead of two rows.** The date header now reads
   `Week 35 · Monday · August 24, 2026 · Demo Calendar (test data)`, with a red **❗Simulated❗** on the
   end when Debug Time has moved the clock — the same marker the strip uses. It's lighter and smaller
-  than the rows below, since it's context rather than content, and it absorbs the old separate
+  than the rows below in colour but not in size — it has to be readable at a glance — and it absorbs
+  the old separate
   *Calendar:* caption, saving a line.
 - The week number is **ISO 8601**, so it means the same thing regardless of locale.
 - **"Demo Mode" is now "Demo Calendar"**, so it can't be confused with the simulated clock — two

@@ -144,6 +144,21 @@ enum SoundHours {
     /// row reflects.
     static var isArmed: Bool { isEnabled && !windows.isEmpty }
 
+    /// Called when an alert or the chime is switched on.
+    ///
+    /// A reset leaves this Off, so that the gate doesn't read as armed above two
+    /// features that are silent. But someone who then turns an alert on has said
+    /// what they want, and leaving them silenced by a schedule they never set
+    /// would look like the alert is broken. So the first sound to be armed opens
+    /// the default window; deliberately switching the schedule Off afterwards is
+    /// respected, because by then it isn't an untouched setting.
+    static func armIfUntouched() {
+        guard !isEnabled, UserDefaults.standard.stringArray(forKey: "soundHours") == nil else {
+            return
+        }
+        setWindows(defaultWindows)
+    }
+
     // MARK: - The question everything else asks
 
     /// True when a sound is allowed right now. Both `Alerts.check` and
