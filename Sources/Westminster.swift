@@ -181,8 +181,6 @@ enum Westminster {
 
     // MARK: - Ringing
 
-    /// Rings a quarter. `hour` is the twelve-hour count used for the strikes and
-    /// is ignored except on the hour.
     /// A render in flight, and whether it still matters.
     ///
     /// Clicking through the volume rows rings a sample each time, and each ring
@@ -211,6 +209,8 @@ enum Westminster {
 
     private static var pendingRender: RenderToken?
 
+    /// Rings a quarter. `hour` is the twelve-hour count used for the strikes and
+    /// is ignored except on the hour.
     static func ring(_ quarter: Quarter, hour: Int = 12, strikes: Bool? = nil) {
         let counting = (strikes ?? strikesHour) && quarter == .hour
         let count = counting ? max(1, min(12, hour)) : 0
