@@ -947,6 +947,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sub.addItem(.separator())
         add("Add Custom…", #selector(pickCustomAlertLead), to: sub)
         addNote("Click as many as you like — the menu stays open", to: sub)
+        alignRowViews(in: sub)
         return sub
     }
 
@@ -1108,6 +1109,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add("Add Custom…", #selector(addSoundWindow), to: sub)
         addNote("A window may run past midnight, and several may be open at once. "
               + "The ✕ deletes one of your own.", to: sub)
+        alignRowViews(in: sub)
         return sub
     }
 
@@ -1179,6 +1181,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sub.addItem(.separator())
         add("Add Custom…", #selector(addChimeVolume), to: sub)
         addNote("Choosing one plays a sample", to: sub)
+        alignRowViews(in: sub)
         return sub
     }
 
@@ -1277,6 +1280,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         addNote("Click as many as you like — the menu stays open", to: sub)
+        alignRowViews(in: sub)
         return sub
     }
 
@@ -1474,6 +1478,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                              keyEquivalent: "")
         add.target = self
         sub.addItem(add)
+        alignRowViews(in: sub)
         return sub
     }
 
@@ -1590,6 +1595,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.isEnabled = false
         menu.addItem(item)
+    }
+
+    /// Stretches every custom-view row to the width of the widest thing in its
+    /// menu.
+    ///
+    /// A row sizes itself to its own text, so its ✕ and ✏️ would otherwise sit
+    /// wherever that text happens to end — halfway across, if a plain item or a
+    /// footnote below it is longer. AppKit lays a menu out to its widest item and
+    /// reports that through `size`, so asking once and matching it puts every
+    /// button on the true right edge.
+    private func alignRowViews(in menu: NSMenu) {
+        let width = menu.size.width
+        guard width.isFinite, width > 1 else { return }
+        for item in menu.items {
+            guard let view = item.view, view.frame.width < width else { continue }
+            view.setFrameSize(NSSize(width: width, height: view.frame.height))
+            // Laid out now rather than on the next display pass, since the row
+            // draws its text up to wherever its buttons ended up.
+            view.needsLayout = true
+            view.layoutSubtreeIfNeeded()
+            view.needsDisplay = true
+        }
     }
 
     /// A dim, unclickable line of explanation at the foot of a submenu.

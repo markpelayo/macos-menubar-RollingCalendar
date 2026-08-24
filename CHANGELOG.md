@@ -19,9 +19,15 @@ All notable changes to this project are documented here. The format follows
   1 to 100, added and selected from **Add Custom…** and kept in the list with an ✕. Deleting the one
   in use falls back to the nearest step, zero is refused — silence is what Off is for — and the rows
   stay open so two volumes can be compared without reopening the menu.
-- **An ✕ on every row you created**, in Sound Hours and on custom lead times alike: switching one off
-  and deleting it are different intentions, and a list you keep adding to needs a way back down.
-  Removal leaves the menu open, and the row dims rather than vanishing under the pointer.
+- **An ✕ on every row you created**, in Sound Hours, on custom lead times and on custom chime volumes:
+  switching one off and deleting it are different intentions, and a list you keep adding to needs a way
+  back down. Removal leaves the menu open, and the row dims rather than vanishing under the pointer.
+
+### Fixed
+
+- Row buttons — the ✕ on a custom row, the pencil and ✕ on a saved calendar — sat wherever that row's
+  own text ended, which could be halfway across a menu made wider by a longer item or a footnote.
+  Custom rows are now stretched to the menu's real width, so every button lines up on the right edge.
 
 ### Changed
 

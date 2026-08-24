@@ -71,6 +71,12 @@ final class ToggleRowView: NSView {
         needsLayout = true
     }
 
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        needsLayout = true      // the ✕ anchors to the right edge, which just moved
+        needsDisplay = true
+    }
+
     override func layout() {
         super.layout()
         let size = Self.buttonSize

@@ -66,6 +66,15 @@ final class CalendarRowView: NSView {
 
     // MARK: Layout
 
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        // The menu stretches these rows so every pencil and ✕ lines up on the
+        // right edge; the buttons anchor to `bounds.maxX`, so a resize has to
+        // relay them out.
+        needsLayout = true
+        needsDisplay = true
+    }
+
     override func layout() {
         super.layout()
         let size = Self.buttonSize
