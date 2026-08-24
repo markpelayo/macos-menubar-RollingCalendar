@@ -27,6 +27,7 @@ swiftc -O \
   Sources/LoginItem.swift \
   Sources/Alerts.swift \
   Sources/ToggleRowView.swift \
+  Sources/ProjectRowView.swift \
   Sources/Westminster.swift \
   Sources/SoundHours.swift \
   -o "${BUNDLE}/Contents/MacOS/${APP_NAME}"

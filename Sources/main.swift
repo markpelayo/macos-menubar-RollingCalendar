@@ -295,6 +295,18 @@ enum Config {
 
     static var isSimulating: Bool { debugOffset != 0 }
 
+    // MARK: - Who and what this is
+
+    static let appName = "macos-menubar-RollingCalendar"
+    static let author = "markpelayo"
+    static let projectURL = "https://github.com/markpelayo/macos-menubar-RollingCalendar"
+
+    /// Read from the bundle rather than hard-coded, so the menu can't claim a
+    /// version the binary isn't.
+    static var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
+
     /// A `Calendar` is not cheap to build, and the strip, the dropdown and the
     /// chime all want one. Kept until the time zone it was built for changes.
     private static var cachedCalendar: (zone: String, calendar: Calendar)?
@@ -642,6 +654,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+
+        // Name, version and author, opening the project page. The version comes
+        // from the bundle, so it always describes the build you're running
+        // rather than what the source happened to say when this was written.
+        let header = ProjectRowView(
+            text: "\(Config.appName) \(Config.version)  ·  by \(Config.author)")
+        header.onOpen = { [weak self] in self?.openProjectPage() }
+        let headerItem = NSMenuItem()
+        headerItem.view = header
+        headerItem.toolTip = Config.projectURL
+        menu.addItem(headerItem)
+        menu.addItem(.separator())
 
         // Zero-padded hours, so every row's time column is the same width.
         let df = Self.rowFormatter
@@ -1774,6 +1798,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Actions
 
     @objc private func refreshNow() { fetch() }
+
+    private func openProjectPage() {
+        guard let url = URL(string: Config.projectURL) else { return }
+        NSWorkspace.shared.open(url)
+    }
 
     /// Minutes, because that's how you think about a lead time — decimals allowed
     /// for the half-minute case.

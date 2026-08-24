@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The menu opens with the project.** `macos-menubar-RollingCalendar 1.4.0 · by markpelayo`, drawn
+  dim like the captions around it and clickable like the commands below it — a plain menu item can be
+  one or the other but not both, so it's a small custom row. The version is read from the bundle
+  rather than written into the source, so it always describes the build you're running.
 - **Sound Hours** — one schedule that both Time Block Alerts and the Westminster Chime ask before
   making any noise, in its own block above them in the menu. Windows are a set rather than a choice,
   so a split day (8 AM–1 PM and 7 PM–10 PM) is one setting; a window may run past midnight; **Off**

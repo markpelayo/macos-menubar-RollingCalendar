@@ -26,7 +26,11 @@ Time flows right-to-left. The red line is fixed at the centre and always marks n
 
 The strip is deliberately small — it lives in the menu bar and is meant to be read at a glance, not studied.
 
-Clicking it opens the day's blocks, and everything else lives in that menu:
+Clicking it opens the day's blocks, and everything else lives in that menu. The first row names the app, the version it's actually running — read from the bundle, so it can't disagree with the binary — and opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar):
+
+```
+macos-menubar-RollingCalendar 1.4.0  ·  by markpelayo
+```
 
 ![A map of the whole menu, top to bottom](docs/ui-menu-map.png)
 
@@ -60,7 +64,7 @@ chmod +x build.sh
 open build/RollingCalendar.app
 ```
 
-Needs macOS 13+ and Xcode Command Line Tools (`xcode-select --install`) for `swiftc`. No packages, no dependencies, no Xcode project — one shell script and twelve Swift files.
+Needs macOS 13+ and Xcode Command Line Tools (`xcode-select --install`) for `swiftc`. No packages, no dependencies, no Xcode project — one shell script and thirteen Swift files.
 
 **It starts in Demo Mode**, showing a realistic time-blocked day, so you can see it working before connecting anything. Click the strip → **Demo Mode** to turn that off once you've set up a real calendar.
 
@@ -500,6 +504,7 @@ Only today is loaded; other days are ignored, though events straddling midnight 
 | `Sources/SoundHours.swift` | The one schedule both the alerts and the chime ask before sounding |
 | `Sources/LoginItem.swift` | The LaunchAgent behind Run at Startup |
 | `Sources/ToggleRowView.swift` | Menu rows that toggle without dismissing the menu |
+| `Sources/ProjectRowView.swift` | The dim, clickable first row that opens the project page |
 | `Sources/DemoData.swift` | A realistic time-blocked day for Demo Mode, overlaps included |
 | `build.sh` | Compiles and packages the `.app` (LSUIElement, ad-hoc signed) |
 | `examples/` | Importable 15-minute test calendars |
@@ -520,10 +525,15 @@ The strip redraws once a second and the feed is re-read every five minutes; noth
 | The four menu `DateFormatter`s | never — they're created at launch |
 | The list of installed voices | a voice is downloaded, or the Mac wakes |
 | The list of alert sounds | one is imported, or the Mac wakes |
+| The Sound Hours windows | one is added, removed or switched |
 
 iCalendar dates are parsed by hand rather than through `DateFormatter`, since a feed with a few hundred events would otherwise build an ICU formatter for every `DTSTART`, `DTEND`, `EXDATE` and `UNTIL` in the file, several times an hour.
 
-Together that's tens of kilobytes held, against roughly 25–60 MB resident for any AppKit menu bar app — most of which is shared framework pages. Downloaded voices are not part of it: their audio lives on disk and is loaded by macOS's own speech process, never this one. On quit the wake observer is released, both timers invalidated and the audio engine stopped.
+Non-recurring events are filtered to the days on screen as they're parsed, so a calendar with years of history costs no more to refresh than one with a week in it.
+
+Together that's tens of kilobytes held, against roughly 25–60 MB resident for any AppKit menu bar app — most of which is shared framework pages. Downloaded voices are not part of it: their audio lives on disk and is loaded by macOS's own speech process, never this one. The chime's audio buffer — a few megabytes for a noon strike — is freed when the last note fades, and a chime superseded before it sounds is cancelled before it's rendered at all.
+
+**Nothing is trusted that comes from outside.** A feed can say anything, so durations are bounded, out-of-range dates refused and every parse total — the iCalendar parser has no force unwraps. On quit the wake observer is released, both timers invalidated and the audio engine stopped.
 
 ## Known limitations
 
