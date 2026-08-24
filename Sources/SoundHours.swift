@@ -116,6 +116,12 @@ enum SoundHours {
         setWindows(windows + [window])
     }
 
+    /// Gone for good, rather than switched off. The list is the only place a
+    /// custom window exists, so this is how one is deleted.
+    static func remove(_ window: Window) {
+        setWindows(windows.filter { $0 != window })
+    }
+
     static func disable() {
         UserDefaults.standard.set(false, forKey: "soundHoursOn")
     }

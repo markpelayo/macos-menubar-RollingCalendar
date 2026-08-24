@@ -885,13 +885,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         alertTestItem?.isEnabled = Alerts.isEnabled
     }
 
-    /// A row that toggles without dismissing the menu.
+    /// A row that toggles without dismissing the menu. `remove` adds an ✕, for
+    /// rows the user created and may want to be rid of rather than merely switch
+    /// off.
     private func toggleRow(_ title: String, isOn: @escaping () -> Bool,
-                           toolTip: String? = nil, toggle: @escaping () -> Void) -> NSMenuItem {
+                           toolTip: String? = nil,
+                           remove: (() -> Void)? = nil,
+                           toggle: @escaping () -> Void) -> NSMenuItem {
         let view = ToggleRowView(title: title, isOn: isOn(), toolTip: toolTip)
         view.isOnNow = isOn
         view.onToggle = toggle
         view.onChanged = { [weak self] in self?.refreshAlertTitles() }
+        view.onRemove = remove
         let item = NSMenuItem()
         item.view = view
         return item
@@ -930,7 +935,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             for seconds in customs {
                 sub.addItem(toggleRow("\(Alerts.leadPhrase(seconds)) before",
                                       isOn: { Alerts.leads.contains(seconds) },
-                                      toolTip: "Your own lead time — click to remove it") {
+                                      toolTip: "Your own lead time — the ✕ deletes it",
+                                      remove: { Alerts.removeLead(seconds) }) {
                     Alerts.toggleLead(seconds)
                 })
             }
@@ -1089,7 +1095,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 sub.addItem(toggleRow(window.title,
                                       isOn: { SoundHours.isArmed
                                               && SoundHours.windows.contains(window) },
-                                      toolTip: "Your own window — click to remove it") {
+                                      toolTip: "Your own window — the ✕ deletes it",
+                                      remove: { SoundHours.remove(window) }) {
                     SoundHours.toggle(window)
                 })
             }
@@ -1097,7 +1104,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         sub.addItem(.separator())
         add("Add Custom…", #selector(addSoundWindow), to: sub)
-        addNote("A window may run past midnight, and several may be open at once", to: sub)
+        addNote("A window may run past midnight, and several may be open at once. "
+              + "The ✕ deletes one of your own.", to: sub)
         return sub
     }
 

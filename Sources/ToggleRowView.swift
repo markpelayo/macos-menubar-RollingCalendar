@@ -21,20 +21,62 @@ final class ToggleRowView: NSView {
     /// titles, mostly.
     var onChanged: (() -> Void)?
 
+    /// Set on a row the user created — a custom lead time, a custom window — to
+    /// give it an ✕. Switching a row off and deleting it are different
+    /// intentions: one is "not today", the other is "I typed this by mistake, and
+    /// the list is getting long".
+    var onRemove: (() -> Void)? {
+        didSet { updateRemoveButton() }
+    }
+
     private let title: String
     private var isOn: Bool
     private var isHovered = false
+    private let removeButton = NSButton()
 
     private static let rowHeight: CGFloat = 22
     private static let textInset: CGFloat = 21     // room for the checkmark
     private static let trailingPadding: CGFloat = 26
+    private static let buttonSize: CGFloat = 17
 
     init(title: String, isOn: Bool, toolTip: String? = nil) {
         self.title = title
         self.isOn = isOn
-        let width = max(200, Self.textInset + Self.width(of: title) + Self.trailingPadding)
+        // Room for an ✕ whether or not this row has one, so rows in the same
+        // menu line up.
+        let width = max(200, Self.textInset + Self.width(of: title)
+                             + Self.trailingPadding + Self.buttonSize + 10)
         super.init(frame: NSRect(x: 0, y: 0, width: width, height: Self.rowHeight))
         self.toolTip = toolTip
+
+        removeButton.isBordered = false
+        removeButton.bezelStyle = .inline
+        removeButton.target = self
+        removeButton.action = #selector(removeTapped)
+        removeButton.toolTip = "Remove this one"
+        if let image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Remove") {
+            removeButton.image = image
+            removeButton.imagePosition = .imageOnly
+        } else {
+            removeButton.title = "✕"
+            removeButton.font = NSFont.menuFont(ofSize: 0)
+        }
+        removeButton.contentTintColor = .secondaryLabelColor
+        removeButton.isHidden = true
+        addSubview(removeButton)
+    }
+
+    private func updateRemoveButton() {
+        removeButton.isHidden = onRemove == nil
+        needsLayout = true
+    }
+
+    override func layout() {
+        super.layout()
+        let size = Self.buttonSize
+        removeButton.frame = NSRect(x: bounds.maxX - size - 10,
+                                    y: (bounds.height - size) / 2,
+                                    width: size, height: size)
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -60,6 +102,7 @@ final class ToggleRowView: NSView {
     private func setHovered(_ hovered: Bool) {
         guard isHovered != hovered else { return }
         isHovered = hovered
+        removeButton.contentTintColor = hovered ? .selectedMenuItemTextColor : .secondaryLabelColor
         needsDisplay = true
     }
 
@@ -82,10 +125,17 @@ final class ToggleRowView: NSView {
             tick.draw(at: NSPoint(x: 9, y: (bounds.height - tick.size().height) / 2))
         }
 
+        let style = NSMutableParagraphStyle()
+        style.lineBreakMode = .byTruncatingTail
         let text = NSAttributedString(string: title, attributes: [
-            .font: font, .foregroundColor: ink
+            .font: font, .foregroundColor: ink, .paragraphStyle: style
         ])
-        text.draw(at: NSPoint(x: Self.textInset, y: (bounds.height - text.size().height) / 2))
+        // Stop short of the ✕ when there is one, so a long label can't run under
+        // it.
+        let limit = (onRemove == nil ? bounds.maxX : removeButton.frame.minX - 6) - Self.textInset
+        text.draw(with: NSRect(x: Self.textInset, y: (bounds.height - text.size().height) / 2,
+                               width: max(limit, 10), height: text.size().height),
+                  options: [.truncatesLastVisibleLine, .usesLineFragmentOrigin])
     }
 
     // MARK: Clicks
@@ -93,6 +143,20 @@ final class ToggleRowView: NSView {
     /// Deliberately no `cancelTracking()`: that's the whole point of this view.
     override func mouseUp(with event: NSEvent) {
         onToggle?()
+        refreshSiblings()
+        onChanged?()
+    }
+
+    /// Removal keeps the menu open too — deleting three stale windows shouldn't
+    /// mean three trips through the menu either. The row is left in place until
+    /// the menu is reopened, so it dims rather than vanishing under the pointer.
+    @objc private func removeTapped() {
+        onRemove?()
+        isOn = false
+        onRemove = nil
+        removeButton.isHidden = true
+        alphaValue = 0.45
+        needsDisplay = true
         refreshSiblings()
         onChanged?()
     }

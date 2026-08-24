@@ -52,6 +52,12 @@ enum Alerts {
 
     static func clearLeads() { setLeads([]) }
 
+    /// For the ✕ on a custom lead time. Same effect as toggling it off — the set
+    /// is the only place it lives — but it says what it does.
+    static func removeLead(_ seconds: Int) {
+        setLeads(leads.filter { $0 != seconds })
+    }
+
     /// Are alerts armed at all? Kept as a name that reads the same as before.
     static var hasLead: Bool { !leads.isEmpty }
 
