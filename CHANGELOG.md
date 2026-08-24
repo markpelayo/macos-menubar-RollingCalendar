@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.4.1] — 2026-08-24
 
+### Added
+
+- **Reset Everything…**, in its own block above Quit. A factory reset: every setting forgotten, the
+  LaunchAgent deleted, saved calendars removed and Demo Mode restored, exactly as on a first launch.
+  It confirms first, itemising what will go, with **Cancel** as the default button — Return shouldn't
+  be the fast path to a wipe. It clears the whole preference domain rather than a list of keys, so a
+  setting added later can't be left behind. Distinct from the appearance-only **Restore Defaults**,
+  which is unchanged.
+
 ### Changed
 
 - **The day's blocks no longer dismiss the menu when clicked.** They're something to read, not

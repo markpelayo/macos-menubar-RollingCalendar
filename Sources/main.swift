@@ -175,6 +175,23 @@ enum Config {
             && labelKeys.allSatisfy { flag($0) }
     }
 
+    /// Everything the app has ever stored, forgotten — the whole preference
+    /// domain rather than a list of keys, so a setting added later can't be left
+    /// behind by an out-of-date list.
+    ///
+    /// The LaunchAgent is removed explicitly, since it's a file rather than a
+    /// preference and would otherwise keep launching an app that has forgotten
+    /// it asked for that.
+    static func resetEverything() {
+        LoginItem.apply(enabled: false, delay: LoginItem.defaultDelay)
+
+        if let domain = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: domain)
+        }
+        UserDefaults.standard.synchronize()
+        cachedCalendar = nil
+    }
+
     /// Back to ± 1 hour, 250 pt timeline, 360 pt labels, every label switched on.
     static func restoreAppearanceDefaults() {
         let d = UserDefaults.standard
@@ -835,6 +852,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // reads at a glance the way Demo Mode and Saved Calendars do.
         startup.state = LoginItem.isEnabled ? .on : .off
         menu.addItem(startup)
+
+        // Rare and destructive, so it sits at the bottom where nothing else is
+        // pressed by accident — and named differently from the appearance-only
+        // Restore Defaults above, because it does a great deal more.
+        menu.addItem(.separator())
+        add("Reset Everything…", #selector(resetEverything), to: menu)
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -1805,6 +1828,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Actions
 
     @objc private func refreshNow() { fetch() }
+
+    /// A factory reset, confirmed first and itemised, because it throws away
+    /// things — saved calendars, imported colours — that took effort to set up.
+    @objc private func resetEverything() {
+        menu.cancelTracking()
+        NSApp.activate(ignoringOtherApps: true)
+
+        let saved = Config.profiles.count
+        let calendars = saved == 1 ? "1 saved calendar" : "\(saved) saved calendars"
+
+        let alert = NSAlert()
+        alert.messageText = "Reset everything to defaults?"
+        alert.informativeText = """
+        This forgets every setting and starts again as though freshly built:
+
+        •  The strip: ± 1 hour across 250 pt, all labels on
+        •  Keyword colours: back to the built-in sample
+        •  Sounds: alerts and chime off, Sound Hours 11:30 AM – 4:30 AM
+        •  Run at Startup: off, and the login item removed
+        •  Debug Time: cleared
+        •  \(calendars): removed, leaving Demo Mode
+
+        Your calendars themselves are untouched — only the links saved here are         forgotten. This can't be undone.
+        """
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Reset Everything")
+        alert.addButton(withTitle: "Cancel")
+        // Cancel is the safe answer, so make it the one Return picks.
+        alert.buttons.first?.keyEquivalent = ""
+        alert.buttons.last?.keyEquivalent = "\r"
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        Config.resetEverything()
+        KeywordRules.clear()
+        KeywordRules.seedSampleRulesIfFirstRun()
+        Alerts.forgetAnnounced()
+        Alerts.refreshVoices()
+        Alerts.refreshSounds()
+        Westminster.stop()
+        reloadAfterSourceChange()
+    }
 
     private func openProjectPage() {
         guard let url = URL(string: Config.projectURL) else { return }

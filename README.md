@@ -404,6 +404,25 @@ Timing is a little brisker than the real clock — notes 1.2 s apart, strikes 4 
 
 A quarter rings once, and only within five seconds of its moment — waking a sleeping Mac at twenty past shouldn't set the bells off for the quarter it slept through.
 
+## Reset Everything
+
+At the bottom of the menu, in its own block above Quit — where rare and destructive things belong, well away from anything pressed often. It's named apart from the appearance-only **Restore Defaults** because it does a great deal more, and the ellipsis promises what follows: a confirmation that itemises what's about to go.
+
+```
+Reset everything to defaults?
+
+  •  The strip: ± 1 hour across 250 pt, all labels on
+  •  Keyword colours: back to the built-in sample
+  •  Sounds: alerts and chime off, Sound Hours 11:30 AM – 4:30 AM
+  •  Run at Startup: off, and the login item removed
+  •  Debug Time: cleared
+  •  2 saved calendars: removed, leaving Demo Mode
+```
+
+It removes the whole preference domain rather than a list of keys, so a setting added in some later version can't be left behind by an out-of-date list, and it deletes the LaunchAgent explicitly — that's a file rather than a preference, and would otherwise go on launching an app that has forgotten it asked. **Cancel is the default button**, since Return should not be the fast path to a wipe.
+
+**Your calendars themselves are untouched.** Only the links saved here are forgotten; nothing is ever written to a calendar. You'll be back in Demo Mode, exactly as on a first launch.
+
 ## Run at Startup
 
 **Off until you ask for it** — putting something into your login sequence is your call, so nothing is written to `~/Library/LaunchAgents` until you switch it on. A wait is worth choosing: at login the Mac is starting everything at once, and the strip isn't what you need in the first few seconds of that. It sits in its own block below Refresh Now, ticked whenever it will launch at login — with or without a wait. The item shows the current setting, so *Run at Startup: After 20 s* tells you where you stand without opening the submenu:
@@ -463,6 +482,7 @@ Most of it is in the menu — click the strip:
 | **Run at Startup ▸** | Off, on, or on after a wait of 5–60 s (**off** by default) |
 | **Debug Time… / Reset to Current Time** | Move the whole app to another moment, and back — see [Debug Time](#debug-time) |
 | **Updated hh:mm:ss** | When the feed was last read successfully |
+| **Reset Everything…** | A factory reset, confirmed first: every setting forgotten, saved calendars removed, back to Demo Mode |
 | **Quit (⌘Q)** | Leaves nothing behind: no helper, and no login item unless you added one |
 
 The first row of the menu — `macos-menubar-RollingCalendar 1.4.1 · by markpelayo` — opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar). The version is read from the app bundle, so it always names the build you're running.
