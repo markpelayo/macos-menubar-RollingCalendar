@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] — 2026-08-25
+
+### Changed
+
+- **The demo day's 3 p.m. block is now just "Weekly Planning".** The old name carried a second
+  clause that said nothing about the demo, and a sample day is read by strangers — it should look
+  like anyone's Monday. `planning` joins the sample palette's *Meetings | Urgency* keywords, so the
+  block still colours as a meeting and the 3 p.m. overlap still demonstrates what it's there for;
+  the bundled sample is 42 keywords rather than 41.
+
+### Fixed
+
+- **The row anatomy diagram is drawn rather than cropped.** `docs/ui-menu-row.png` was a crop of a
+  screenshot, so its sample block name was whatever happened to be on screen the day it was taken —
+  which is how it came to disagree with the demo day. It is now generated from the same field order
+  the row builds, and gains a label for the ▶︎ marker that the crop never explained.
+
 ## [1.4.1] — 2026-08-24
 
 ### Added

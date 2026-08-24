@@ -166,6 +166,7 @@ enum KeywordRules {
     Meetings | Urgency,red,call
     Meetings | Urgency,red,calls
     Meetings | Urgency,red,sync
+    Meetings | Urgency,red,planning
     Meetings | Urgency,red,syncs
     Meetings | Urgency,red,client syncs
     Meetings | Urgency,red,standup

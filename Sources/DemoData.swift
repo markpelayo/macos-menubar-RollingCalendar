@@ -32,7 +32,7 @@ enum DemoData {
         Block(start:  870, end:  900, title: "Update tasks | Update the TO-DO list"),
 
         // 15:00 — two calls booked over each other.
-        Block(start:  900, end:  930, title: "Team Sync | Weekly Planning"),
+        Block(start:  900, end:  930, title: "Weekly Planning"),
         Block(start:  900, end:  920, title: "Client Call | Acme Renewal"),
 
         // 15:30–17:00 focus, with an interview and a standup dropped inside it.
