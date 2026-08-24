@@ -8,6 +8,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **"When it starts"** joins the lead times: an alert as the block begins rather than ahead of it,
+  saying *"Focus Work, starting now"*. The row above it is now **Alert Me** rather than *Alert Me
+  Before*, which that option would have contradicted.
+- **Time Block Alerts says "Off"** in its own title when nothing is set, matching the Westminster
+  Chime row rather than going quiet about it.
 - **Restore Defaults…**, in its own block above Quit. A factory reset: every setting forgotten, the
   LaunchAgent deleted, saved calendars removed and Demo Mode restored, exactly as on a first launch.
   It confirms first, itemising what will go, with **Cancel** as the default button — Return shouldn't

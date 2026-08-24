@@ -299,10 +299,11 @@ Times are read the way people type them: `8`, `8am`, `6:30 PM`, `18:30`, `1830`,
 A heads-up shortly before a block starts — a system sound, the name spoken aloud, or both. Off until you set it up, and the menu is deliberately staged: **when**, then **how**, then **which blocks**. Each step stays greyed out until the one above it is answered, and the parent item is ticked only once an alert could actually happen.
 
 ```
-✓ Time Block Alerts: 10m, 1m | Voice — Daniel ▸
-                        Alert Me Before: 10 minutes, 1 minute ▸
+✓ Time Block Alerts: at start, 10m | Voice — Daniel ▸
+                        Alert Me: 10 minutes, when it starts ▸
                                                        Off
-                                                       1 minute before      ✓
+                                                       When it starts       ✓
+                                                       1 minute before
                                                        5 minutes before
                                                        10 minutes before    ✓
                                                        Add Custom…
@@ -330,7 +331,7 @@ A heads-up shortly before a block starts — a system sound, the name spoken alo
                         Test Alert Now
 ```
 
-**Lead times are a set, not a choice.** Every row in *Alert Me Before* is a toggle, so ten minutes to start wrapping up and one minute to actually move can both be armed; **Add Custom…** adds another rather than replacing what's there, and custom values sit alongside the presets where you can click them off again. They all share the one sound or voice — only the number spoken changes. **Off** clears the lot.
+**Lead times are a set, not a choice.** Every row in *Alert Me* is a toggle, so ten minutes to start wrapping up and one minute to actually move can both be armed; **Add Custom…** adds another rather than replacing what's there, and custom values sit alongside the presets where you can click them off again. They all share the one sound or voice — only the number spoken changes. **Off** clears the lot.
 
 **Those rows, and the category rows, don't dismiss the menu.** AppKit closes a menu the moment an ordinary item is clicked, which is right for a choice and wrong for a set — arming three lead times would otherwise mean three trips through the menu. They're custom views that handle the click themselves: the tick changes under the pointer, sibling rows re-read their own state, and the parent rows above rewrite their titles in place.
 
@@ -341,6 +342,8 @@ Each block is announced once *per lead time*, and an alert that's more than 30 s
 **Sound and speech are exclusive.** Choosing a sound switches the voice off, choosing a voice switches the sound off. One alert, one way of announcing itself — a chime under a sentence makes both harder to make out, and having to remember which of two checkboxes is on is worse than seeing one answer on the parent item.
 
 **The sounds are the ones macOS already ships** in `/System/Library/Sounds` — fourteen, quietest first, which is all Apple provides. Choosing one plays it. **Custom Sound…** copies an AIFF, WAV, CAF, M4A or MP3 into `~/Library/Sounds`, where `NSSound` can find it by name from then on; it appears in its own group below the system ones, and anything already in that folder is picked up automatically. A file macOS can't actually open is refused rather than copied in and left silent.
+
+**When it starts** is a lead time of zero: the alert lands as the block begins rather than ahead of it — *"Focus Work, starting now"* rather than *"5 minutes before Focus Work"*. It's why the row above is called *Alert Me* rather than *Alert Me Before*, which that option would have contradicted. It fires within half a minute of the start; later than that the moment has passed, and it's skipped rather than announced late.
 
 **Speech** is `AVSpeechSynthesizer` — no network, no permission prompt. It says *"5 minutes before Focus Work"*, taking the lead time from your own setting so the two can't disagree, and reading only the part of the name before the first `|`, since a bar reads aloud as an awkward pause. Two blocks starting together are announced in one sentence rather than talking over each other.
 
@@ -478,7 +481,7 @@ Most of it is in the menu — click the strip:
 | **Demo Mode** | A generated day, so the strip works before any calendar is connected |
 | **Saved Calendars ▸** | Public feeds kept as named profiles: switch, rename, remove |
 | **Sound Hours ▸** | The hours in which the alerts and the chime may sound — several windows, midnight wrap allowed (default 11:30 AM – 4:30 AM) |
-| **Time Block Alerts ▸** | A sound or the block name spoken, at one or more lead times before a block starts, for the categories you choose (**off** by default) |
+| **Time Block Alerts ▸** | A sound or the block name spoken, as a block starts or at one or more lead times before it, for the categories you choose (**off** by default) |
 | **Westminster Chime ▸** | The hour, or every quarter, on synthesised bells — with the hour counted out (**off** by default) |
 | **Refresh Now (⌘R)** | Re-reads the feed immediately instead of waiting for the five-minute timer |
 | **Run at Startup ▸** | Off, on, or on after a wait of 5–60 s (**off** by default) |
