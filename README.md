@@ -51,7 +51,7 @@ The screenshots below are of the real menu, and cover it in four parts. They pre
 
 ### 4 · Where the calendar comes from
 
-This block now sits at the top, above Debug Time and the day's blocks — which calendar is being read comes before anything read from it.
+This block sits between the day's blocks and the strip settings: the list above it is what the calendar produced, and the settings below it are how that list is drawn.
 
 ![The calendar section: current source, Demo Mode and Saved Calendars](docs/ui-menu-source.png)
 
