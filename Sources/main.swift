@@ -684,30 +684,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(headerItem)
         menu.addItem(.separator())
 
-        // Zero-padded hours, so every row's time column is the same width.
-        let df = Self.rowFormatter
-        df.timeZone = Config.displayTimeZone
-
-        let dayFormatter = Self.dayHeaderFormatter
-        dayFormatter.timeZone = Config.displayTimeZone
-        addInfo(dayFormatter.string(from: Clock.now)
-                    + (Config.isSimulating ? "   ·   simulated" : ""), to: menu)
-
-        // --- Debug time ---
-        if Config.isSimulating {
-            let stamp = Self.debugStampFormatter
-            stamp.timeZone = Config.displayTimeZone
-            let item = add("⏱ Debug Time: \(stamp.string(from: Clock.now))…",
-                           #selector(pickDebugTime), to: menu)
-            item.toolTip = "Pretending it's this moment. The simulated clock keeps running."
-            add("Reset to Current Time", #selector(resetDebugTime), to: menu)
-        } else {
-            let item = add("Debug Time…", #selector(pickDebugTime), to: menu)
-            item.toolTip = "Jump the app to any date and time to see how the strip looks then"
-        }
-
-        menu.addItem(.separator())
-
         // --- Which source is live ---
         if Config.demoMode {
             addInfo("Calendar: demo blocks (test data)", to: menu)
@@ -731,6 +707,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // reads as the counterpart to Demo Mode above it.
             saved.state = (!Config.demoMode && Config.hasCalendarInput) ? .on : .off
             menu.addItem(saved)
+        }
+
+        menu.addItem(.separator())
+
+        // Zero-padded hours, so every row's time column is the same width.
+        let df = Self.rowFormatter
+        df.timeZone = Config.displayTimeZone
+
+        let dayFormatter = Self.dayHeaderFormatter
+        dayFormatter.timeZone = Config.displayTimeZone
+        addInfo(dayFormatter.string(from: Clock.now)
+                    + (Config.isSimulating ? "   ·   simulated" : ""), to: menu)
+
+        // --- Debug time ---
+        if Config.isSimulating {
+            let stamp = Self.debugStampFormatter
+            stamp.timeZone = Config.displayTimeZone
+            let item = add("⏱ Debug Time: \(stamp.string(from: Clock.now))…",
+                           #selector(pickDebugTime), to: menu)
+            item.toolTip = "Pretending it's this moment. The simulated clock keeps running."
+            add("Reset to Current Time", #selector(resetDebugTime), to: menu)
+        } else {
+            let item = add("Debug Time…", #selector(pickDebugTime), to: menu)
+            item.toolTip = "Jump the app to any date and time to see how the strip looks then"
         }
 
         menu.addItem(.separator())

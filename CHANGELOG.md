@@ -17,8 +17,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
-- **The calendar block moved up**, to sit directly under Debug Time and above the day's blocks. Which
-  calendar is being read belongs next to what it produced, rather than at the far end of the menu.
+- **The calendar block moved to the top**, above Debug Time and the day's blocks. Which calendar is
+  being read comes before anything read from it, rather than being announced at the far end of the
+  menu.
 - **The day's blocks no longer dismiss the menu when clicked.** They're something to read, not
   something to press, and losing the whole menu to a stray click while reading a list of sixty was a
   poor trade for a click that had nothing to do. They still highlight under the pointer, which is
