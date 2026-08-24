@@ -22,7 +22,7 @@ Titles carry their own start time — `Email triage 09:15 (15M)` — so alignmen
 2. Name it something like `ZZ Test Blocks` → **Create**
 3. ⚙️ **Settings** → **Import & export** → **Import**
 4. Pick the `.ics` file, set *Add to calendar* to `ZZ Test Blocks` → **Import**
-5. In the app: strip → **Choose Calendar** → `ZZ Test Blocks`
+5. In the app: strip → **Saved Calendars ▸ Add Calendar…**
 
 To clean up: Settings → your test calendar → **Remove calendar** → *Delete*.
 

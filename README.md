@@ -2,12 +2,11 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform: macOS 13+](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey)](#quick-start)
-[![Status: in development](https://img.shields.io/badge/status-in%20development-orange)](#known-limitations)
 [![Release: v1.4.0](https://img.shields.io/badge/release-v1.4.0-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
 
 A macOS menu bar app that draws today's calendar as a horizontal timeline scrolling past a fixed "now" marker. Instead of asking *what time is my next thing*, you glance up and see where you are.
 
-> **Status: in development.** Working and usable — [v1.4.0](CHANGELOG.md) is the current release — but rough edges remain, see [Known limitations](#known-limitations). Behaviour, defaults and stored preferences may change without migration.
+It's in daily use, and [v1.4.0](CHANGELOG.md) is the current release. What it deliberately doesn't do is listed under [Known limitations](#known-limitations).
 
 ## The UI
 
@@ -34,11 +33,11 @@ macos-menubar-RollingCalendar 1.4.0  ·  by markpelayo
 
 ![A map of the whole menu, top to bottom](docs/ui-menu-map.png)
 
-The screenshots below are of the real menu, and cover it in four parts. They predate **Time Block Alerts**, **Westminster Chime** and **Run at Startup** — the map above is the current order.
+The screenshots below are of the real menu, and cover it in four parts. They predate the project row, **Sound Hours**, **Time Block Alerts**, **Westminster Chime** and **Run at Startup** — the map above is the current order.
 
-### 1 · The header
+### 1 · Date and Debug Time
 
-![The menu header: date, Debug Time and Reset to Current Time](docs/ui-menu-header.png)
+![The date row, Debug Time and Reset to Current Time](docs/ui-menu-header.png)
 
 ### 2 · The day's blocks
 
@@ -64,7 +63,7 @@ chmod +x build.sh
 open build/RollingCalendar.app
 ```
 
-Needs macOS 13+ and Xcode Command Line Tools (`xcode-select --install`) for `swiftc`. No packages, no dependencies, no Xcode project — one shell script and thirteen Swift files.
+Needs macOS 13+ and Xcode Command Line Tools (`xcode-select --install`) for `swiftc`. No packages, no dependencies, no Xcode project — two shell scripts and thirteen Swift files.
 
 **It starts in Demo Mode**, showing a realistic time-blocked day, so you can see it working before connecting anything. Click the strip → **Demo Mode** to turn that off once you've set up a real calendar.
 
@@ -98,6 +97,8 @@ Saved Calendars ▸
 
 A tick marks the calendar actually being read — nothing is ticked in Demo Mode, and **Saved Calendars** itself is ticked whenever a saved calendar is live. Click a row to switch to it. The **pencil** renames it, the **✕** removes it after a confirmation that spells out what happens — whether it's the one in use, or your last one. Only the saved link is ever forgotten; your actual calendar is untouched.
 
+Before the first calendar is saved there is no submenu to open — the menu shows a plain **Add Calendar…** instead, and *Saved Calendars ▸* appears once you have one.
+
 **Add Calendar…** asks for a name and a link. A link saved before profiles existed is adopted as a profile automatically, named after its address, so nothing is lost.
 
 The link field accepts any of these — the app works out the feed URL:
@@ -112,7 +113,7 @@ The link field accepts any of these — the app works out the feed URL:
 | `you@gmail.com`, `…@group.calendar.google.com` | derived `.ics` feed |
 | `file:///path/to/local.ics` | read from disk |
 
-**HTTP 404 means the calendar isn't public.** Either share it publicly (Google Calendar → Settings and sharing → *Access permissions* → **Make available to public**), use the **Secret address in iCal format** under *Integrate calendar*.
+**HTTP 404 means the calendar isn't public.** Either share it publicly (Google Calendar → Settings and sharing → *Access permissions* → **Make available to public**), or use the **Secret address in iCal format** under *Integrate calendar*.
 
 A `ctz=` parameter in the link sets the time zone used for event times; otherwise the Mac's own time zone is used.
 
@@ -153,7 +154,11 @@ A date separator marks where one day becomes the next, since otherwise today's 4
 
 Colour blocks by what they're *called*, rather than by which calendar they came from.
 
-**The fastest start is Keyword Colors ▸ Use Sample Colors** — 37 keywords across six categories, applied instantly. **Save Sample CSV…** writes that same set out as a file you can edit in a spreadsheet and bring back with **Import CSV…**, so you're never starting from a blank sheet.
+![The colour wheel the sample palette is drawn from, with hex codes](docs/palette-wheel.png)
+
+*(The same wheel as [SVG](docs/palette-wheel.svg), if you want to edit it.)*
+
+**The fastest start is Keyword Colors ▸ Use Sample Colors** — 41 keywords across six categories, applied instantly. **Save Sample CSV…** writes that same set out as a file you can edit in a spreadsheet and bring back with **Import CSV…**, so you're never starting from a blank sheet.
 
 The format is three columns:
 
@@ -226,7 +231,9 @@ The **Keyword Colors** submenu lists it below your categories with its swatch, s
 ──────────────────────────────────
 ⬜  Uncategorized  ·  no keyword match
 ──────────────────────────────────
-Import Another CSV…
+Use Sample Colors
+    Save Sample CSV…
+    Import Another CSV…
 Clear Keyword Colors
 ```
 
@@ -242,7 +249,7 @@ While it's active the left label gains a marker: `(❗Simulated❗) 🔴(2) Out 
 
 **Nothing is tinted, washed or dimmed.** The point of jumping to another time is to see the real colours at that time, so the strip is drawn exactly as it would be for real. **Reset to Current Time** puts it back, and the picker has a **Use Current Time** button.
 
-The offset survives a relaunch, which is what you want mid-testing. If the strip ever looks wrong, check for the purple tint first.
+The offset survives a relaunch, which is what you want mid-testing. If the strip ever looks wrong, check the left label for the `(❗Simulated❗)` marker first.
 
 ## Testing without a calendar
 
@@ -329,7 +336,7 @@ Each block is announced once *per lead time*, and an alert that's more than 30 s
 
 **Sound and speech are exclusive.** Choosing a sound switches the voice off, choosing a voice switches the sound off. One alert, one way of announcing itself — a chime under a sentence makes both harder to make out, and having to remember which of two checkboxes is on is worse than seeing one answer on the parent item.
 
-**The sounds are the ones macOS already ships** in `/System/Library/Sounds` — fourteen, quietest first, which is all Apple provides. Choosing one plays it. **Custom Sound…** copies an AIFF, WAV, MP3 or M4A into `~/Library/Sounds`, where `NSSound` can find it by name from then on; it appears in its own group below the system ones, and anything already in that folder is picked up automatically. A file macOS can't actually open is refused rather than copied in and left silent.
+**The sounds are the ones macOS already ships** in `/System/Library/Sounds` — fourteen, quietest first, which is all Apple provides. Choosing one plays it. **Custom Sound…** copies an AIFF, WAV, CAF, M4A or MP3 into `~/Library/Sounds`, where `NSSound` can find it by name from then on; it appears in its own group below the system ones, and anything already in that folder is picked up automatically. A file macOS can't actually open is refused rather than copied in and left silent.
 
 **Speech** is `AVSpeechSynthesizer` — no network, no permission prompt. It says *"5 minutes before Focus Work"*, taking the lead time from your own setting so the two can't disagree, and reading only the part of the name before the first `|`, since a bar reads aloud as an awkward pause. Two blocks starting together are announced in one sentence rather than talking over each other.
 
@@ -391,7 +398,7 @@ The hour is counted on a twelve-hour clock, so one o'clock is one blow and midda
 
 **Volume** is the four obvious steps plus anything you add, since "50% is too much and 25% too little" is a real complaint a fixed list can't answer. **Add Custom…** takes a percentage from 1 to 100, selects it and keeps it in the list with an **✕**; deleting the one in use falls back to the nearest step rather than leaving the chime at a volume no row admits to. Zero isn't allowed — silence is what *Off* and Sound Hours are for. Picking any of them plays a sample, and the rows stay open so two can be compared.
 
-Timing is a little brisker than the real clock — notes 1.2 s apart, strikes 4 s — so midday takes about 70 seconds rather than two minutes. **Strike the Hour Count** off leaves just the tune, which is a good deal less imposing at midnight. The audio is rendered on a background thread when the quarter comes round, played through `AVAudioEngine`, and released when the last note dies away; the hardware is let go with it.
+Timing is a little brisker than the real clock — notes 1.2 s apart, strikes 4 s — so midday takes about 80 seconds rather than two minutes. **Strike the Hour Count** off leaves just the tune, which is a good deal less imposing at midnight. The audio is rendered on a background thread when the quarter comes round, played through `AVAudioEngine`, and released when the last note dies away; the hardware is let go with it.
 
 A quarter rings once, and only within five seconds of its moment — waking a sleeping Mac at twenty past shouldn't set the bells off for the quarter it slept through.
 
@@ -443,12 +450,20 @@ Most of it is in the menu — click the strip:
 | **Timeline Width ▸** | How much menu bar the timeline takes: 100 pt to 450 pt in 50 pt steps (default 250 pt) |
 | **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
 | **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 360 pt, about 47 characters) |
+| **Keyword Colors ▸** | Import a CSV of keyword → colour rules, load the bundled sample, save it out to edit, or clear it |
 | **Restore Defaults** | Back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Greyed out when nothing has been changed |
+| **Demo Mode** | A generated day, so the strip works before any calendar is connected |
+| **Saved Calendars ▸** | Public feeds kept as named profiles: switch, rename, remove |
 | **Sound Hours ▸** | The hours in which the alerts and the chime may sound — several windows, midnight wrap allowed (default 11:30 AM – 4:30 AM) |
-| **Westminster Chime ▸** | The hour, or every quarter, on synthesised bells — with the hour counted out (**off** by default) |
 | **Time Block Alerts ▸** | A sound or the block name spoken, at one or more lead times before a block starts, for the categories you choose (**off** by default) |
+| **Westminster Chime ▸** | The hour, or every quarter, on synthesised bells — with the hour counted out (**off** by default) |
 | **Refresh Now (⌘R)** | Re-reads the feed immediately instead of waiting for the five-minute timer |
 | **Run at Startup ▸** | Off, on, or on after a wait of 5–60 s (**off** by default) |
+| **Debug Time… / Reset to Current Time** | Move the whole app to another moment, and back — see [Debug Time](#debug-time) |
+| **Updated hh:mm:ss** | When the feed was last read successfully |
+| **Quit (⌘Q)** | Leaves nothing behind: no helper, and no login item unless you added one |
+
+The first row of the menu — `macos-menubar-RollingCalendar 1.4.0 · by markpelayo` — opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar). The version is read from the app bundle, so it always names the build you're running.
 
 The two are independent: **range** decides how much time you see, **width** decides how much space it gets. Together they set how big a block looks — at the default ±1 hour across 250 pt, a 15-minute block is about 31 pt wide; narrow the range to ±15 minutes at the same width and it grows to 125 pt. Each width option's tooltip does that arithmetic for you, and the note at the foot of the menu shows the current result.
 
@@ -487,7 +502,7 @@ Only when two candidates tie *exactly* does chain position break it, preferring 
 
 If they're still tied — identical start *and* end, like two trainings both booked 1–2 — geometry can't separate them, and it falls back to shorter-first then alphabetical, purely so the choice is stable rather than flickering. Telling "my own time block" from "a meeting someone sent me" reliably needs the organiser/attendee fields from the Google API, which isn't wired up yet.
 
-Only today is loaded; other days are ignored, though events straddling midnight still render at the window edges. The calendar is re-fetched every 5 minutes and on wake; the strip redraws every second.
+Four days are loaded — yesterday through the day after tomorrow — so the sleep-to-sleep cycle can always find both of its boundaries; only the ± window is drawn on the strip, though events straddling midnight still render at the window edges. The calendar is re-fetched every 5 minutes and on wake; the strip redraws every second.
 
 ## How it's built
 
@@ -522,7 +537,7 @@ The strip redraws once a second and the feed is re-read every five minutes; noth
 |---|---|
 | The gutter labels | the second, the events, the settings or light/dark mode change |
 | The `Calendar` | the time zone changes |
-| The four menu `DateFormatter`s | never — they're created at launch |
+| The five menu `DateFormatter`s | never — they're created at launch |
 | The list of installed voices | a voice is downloaded, or the Mac wakes |
 | The list of alert sounds | one is imported, or the Mac wakes |
 | The Sound Hours windows | one is added, removed or switched |
@@ -542,6 +557,9 @@ Together that's tens of kilobytes held, against roughly 25–60 MB resident for 
 - **Feeds carry no colour of their own**, so blocks are coloured by keyword rules or shown as uncategorized grey.
 - **Google's feed cache** means an edit can take a while to reach the app — minutes to hours, and not under the app's control.
 - **Single day only.** No multi-day view, no scrolling back.
+- **A failed refresh keeps the last good day** for half an hour — the strip shows the error, while the dropdown and the alerts carry on from what was last read. After that it's cleared, since by then it really is unknown.
+- **Reading only.** Blocks are added and edited in your calendar, never here — see [Privacy](#privacy).
+- **Siri's voice can't be used** for spoken alerts. macOS reserves it; the Premium voices are the answer.
 
 ## Privacy
 

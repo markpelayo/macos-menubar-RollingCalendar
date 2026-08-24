@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.0] — 2026-08-22
+## [1.4.0] — 2026-08-24
 
 ### Added
 
@@ -81,7 +81,7 @@ Internal only: no new features, nothing moved in the menu, no settings changed.
   DTSTART, DTEND, EXDATE and UNTIL in the file, several times an hour. Accepted
   and rejected forms are unchanged, and out-of-range fields — month 13, 30
   February — are still refused rather than quietly rolled forward.
-- `Calendar` and the four menu `DateFormatter`s are built once instead of per
+- `Calendar` and the menu's `DateFormatter`s are built once instead of per
   call; the alert settings are read once per tick instead of once per event; the
   announced-blocks set is pruned by age instead of being emptied wholesale.
 - The wake observer is now released, and the timers invalidated and the audio
@@ -204,7 +204,7 @@ First public release.
   on a measured tab stop, running anchor to anchor (`sleep` by default) rather than midnight to
   midnight so a late evening reads as one day.
 - **Keyword Colors** — colour blocks by what they're called. Import a CSV of
-  `keyword,color,category` rules, load the bundled 37-keyword sample, save it out to edit in a
+  `category,color,keyword` rules, load the bundled 41-keyword sample, save it out to edit in a
   spreadsheet, or clear it. Longest phrase wins, matching is whole-word and punctuation-insensitive,
   and anything unmatched stays a neutral grey so it's visibly unclassified.
 - **Saved Calendars** — public iCalendar feeds kept as named profiles you can switch between,
