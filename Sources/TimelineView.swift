@@ -103,7 +103,11 @@ final class TimelineView: NSView {
     }
 
     private func gutters(now: Date) -> Gutters {
-        let key = GutterKey(second: Int(now.timeIntervalSince1970),
+        // `Clock.now` carries a user-set offset; clamping keeps the conversion
+        // total even if the stored value is nonsense.
+        let raw = now.timeIntervalSince1970
+        let stamp = raw.isFinite ? min(max(raw, -1e12), 1e12) : 0
+        let key = GutterKey(second: Int(stamp),
                             generation: generation,
                             dark: isDarkAppearance,
                             settings: Self.settingsFingerprint)
@@ -492,12 +496,20 @@ final class TimelineView: NSView {
     }
 
     /// "1h05", "1h", "12m", "45s" — compact enough for the menu bar.
+    /// A feed can say anything, and `Int(_: Double)` traps rather than saturating,
+    /// so the clamp happens in `Double` before the conversion. Ten years is well
+    /// past anything a countdown can usefully say.
+    private static let longestLabelledSpan: TimeInterval = 315_360_000
+
     static func format(_ seconds: TimeInterval) -> String {
+        // NaN survives min/max, so it's refused outright rather than clamped.
+        guard seconds.isFinite else { return "0s" }
         // Round up, so it only reads 0 once the block has actually ended.
-        let total = max(Int(seconds.rounded(.up)), 0)
+        let bounded = min(max(seconds.rounded(.up), 0), longestLabelledSpan)
+        let total = Int(bounded)
         let hours = total / 3600
         let minutes = (total % 3600) / 60
-        if hours > 0 { return minutes > 0 ? String(format: "%dh%02d", hours, minutes) : "\(hours)h" }
+        if hours > 0 { return minutes > 0 ? String(format: "%ldh%02ld", hours, minutes) : "\(hours)h" }
         if minutes > 0 { return "\(minutes)m" }
         return "\(total)s"
     }

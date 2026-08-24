@@ -74,7 +74,11 @@ enum Westminster {
     }
 
     /// Whole percent, which is how the menu talks about it.
-    static var volumePercent: Int { Int((volume * 100).rounded()) }
+    static var volumePercent: Int {
+        let level = volume
+        guard level.isFinite else { return 50 }          // total, even if edited by hand
+        return Int((min(max(level, 0), 1) * 100).rounded())
+    }
 
     /// Volumes you added yourself, kept so they stay in the menu to pick again.
     static var customVolumes: [Int] {
@@ -179,13 +183,51 @@ enum Westminster {
 
     /// Rings a quarter. `hour` is the twelve-hour count used for the strikes and
     /// is ignored except on the hour.
+    /// A render in flight, and whether it still matters.
+    ///
+    /// Clicking through the volume rows rings a sample each time, and each ring
+    /// is a full render — a second of CPU and several megabytes for the hour. A
+    /// superseded one should cost nothing, so each carries a token the next ring
+    /// (or Stop Ringing) cancels. The flag is read on the render queue and set on
+    /// main, so it takes a lock rather than a hop: hopping to main from the
+    /// render queue would block on whatever main is doing, and main is often
+    /// tracking the very menu that started the render.
+    private final class RenderToken {
+        private let lock = NSLock()
+        private var cancelled = false
+
+        var isCancelled: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return cancelled
+        }
+
+        func cancel() {
+            lock.lock()
+            cancelled = true
+            lock.unlock()
+        }
+    }
+
+    private static var pendingRender: RenderToken?
+
     static func ring(_ quarter: Quarter, hour: Int = 12, strikes: Bool? = nil) {
         let counting = (strikes ?? strikesHour) && quarter == .hour
         let count = counting ? max(1, min(12, hour)) : 0
 
+        pendingRender?.cancel()
+        let token = RenderToken()
+        pendingRender = token
+
         renderQueue.async {
+            // Checked before the work, not after: a render nobody will hear is
+            // not worth a second of CPU.
+            guard !token.isCancelled else { return }
             guard let buffer = render(quarter, strikes: count) else { return }
-            DispatchQueue.main.async { playBuffer(buffer) }
+            DispatchQueue.main.async {
+                guard !token.isCancelled else { return }
+                playBuffer(buffer)
+            }
         }
     }
 
@@ -202,9 +244,12 @@ enum Westminster {
               let hour = parts.hour, let second = parts.second else { return }
         guard mode == .quarterly || minute == 0 else { return }
 
-        let stamp = "\(parts.year ?? 0)-\(parts.month ?? 0)-\(parts.day ?? 0)-\(hour)-\(minute)"
-        guard stamp != lastRung else { return }
-        lastRung = stamp
+        // Which quarter of absolute time this is, rather than what the wall clock
+        // reads: when the clocks go back, 1:00 to 1:59 happens twice, and a
+        // wall-clock stamp would silence the second pass.
+        let quarterIndex = Int((now.timeIntervalSince1970 / 900).rounded(.down))
+        guard quarterIndex != lastRung else { return }
+        lastRung = quarterIndex
         guard second <= 5 else { return }   // too late to be the right time
 
         let quarter: Quarter
@@ -218,13 +263,15 @@ enum Westminster {
     }
 
     static func stop() {
+        pendingRender?.cancel()      // anything still rendering is now unwanted
+        pendingRender = nil
         player.stop()
         if engine.isRunning { engine.pause() }
     }
 
     static var isRinging: Bool { player.isPlaying }
 
-    private static var lastRung = ""
+    private static var lastRung = Int.min
 
     // MARK: - Synthesis
 
@@ -233,6 +280,26 @@ enum Westminster {
     private static let engine = AVAudioEngine()
     private static let player = AVAudioPlayerNode()
     private static var engineWired = false
+    private static var watchingDeviceChanges = false
+
+    /// Changing the output device — headphones, Bluetooth, a display with
+    /// speakers, or coreaudiod restarting — tears down the engine's node graph.
+    /// Playing into the wreckage of one raises an exception rather than failing
+    /// quietly, so the graph is rebuilt on the next chime instead.
+    private static func watchForDeviceChanges() {
+        guard !watchingDeviceChanges else { return }
+        watchingDeviceChanges = true
+        NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+        ) { _ in
+            // `stop()` leaves nodes attached, so the detach has to be explicit —
+            // otherwise the next chime re-attaches an already-attached node.
+            player.stop()
+            engine.stop()
+            engine.detach(player)
+            engineWired = false
+        }
+    }
 
     /// A struck bell: a fundamental with inharmonic partials above it, each
     /// fading at its own rate. The hum is below the note, the tierce a minor
@@ -271,7 +338,9 @@ enum Westminster {
                                             frameCapacity: AVAudioFrameCount(seconds * sampleRate)),
               let samples = buffer.floatChannelData?[0] else { return nil }
 
-        let total = Int(seconds * sampleRate)
+        // Derived from the capacity rather than recomputed, so the write loop's
+        // bound and the allocation can never disagree.
+        let total = Int(buffer.frameCapacity)
         buffer.frameLength = AVAudioFrameCount(total)
         for i in 0..<total { samples[i] = 0 }
 
@@ -299,6 +368,7 @@ enum Westminster {
     }
 
     private static func playBuffer(_ buffer: AVAudioPCMBuffer) {
+        watchForDeviceChanges()
         if !engineWired {
             engine.attach(player)
             engine.connect(player, to: engine.mainMixerNode, format: buffer.format)

@@ -218,7 +218,8 @@ enum Config {
     /// stretch instead of being cut at midnight.
     static var dayAnchorKeyword: String {
         let v = UserDefaults.standard.string(forKey: "dayAnchorKeyword")
-        return (v?.isEmpty == false) ? v! : "sleep"
+        if let v, !v.isEmpty { return v }
+        return "sleep"
     }
 
     /// Colour for a block that matched no keyword rule and carries no colour of
@@ -283,8 +284,13 @@ enum Config {
     // MARK: Debug time
 
     /// Seconds added to the real clock. 0 means "use the real time".
+    /// Clamped, and never NaN: this feeds every date the app computes, and
+    /// `defaults write … -float nan` would otherwise reach an `Int` conversion.
+    /// A century either way is more simulation than anyone needs.
     static var debugOffset: TimeInterval {
-        UserDefaults.standard.double(forKey: "debugOffset")
+        let stored = UserDefaults.standard.double(forKey: "debugOffset")
+        guard stored.isFinite else { return 0 }
+        return min(max(stored, -3_155_760_000), 3_155_760_000)
     }
 
     static var isSimulating: Bool { debugOffset != 0 }
@@ -336,6 +342,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var redrawTimer: Timer?
     private var fetchTimer: Timer?
     private var lastFetch: Date?
+    /// Tickets for in-flight fetches, and when the current run of failures began.
+    private var fetchGeneration = 0
+    private var failingSince: Date?
+    /// What the alerts watch: the day's events, not the dropdown's anchor-to-
+    /// anchor cycle, which stops at the next sleep block and would leave a late
+    /// evening unannounced.
+    private var alertEvents: [CalEvent] = []
     /// What the dropdown lists — one sleep-to-sleep cycle, not one calendar day.
     private var menuEvents: [CalEvent] = []
 
@@ -382,14 +395,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // nothing to show, so it simply doesn't run.
             let now = Clock.now
             let maySound = SoundHours.allows(now)
-            Alerts.check(self.menuEvents, now: now, maySound: maySound)
+            Alerts.check(self.alertEvents, now: now, maySound: maySound)
             if maySound { Westminster.check(now: now) }
         }
         fetchTimer = Timer.scheduledTimer(withTimeInterval: Config.refetchInterval, repeats: true) { [weak self] _ in
             self?.fetch()
         }
-        RunLoop.main.add(redrawTimer!, forMode: .common)
-        RunLoop.main.add(fetchTimer!, forMode: .common)
+        if let redrawTimer { RunLoop.main.add(redrawTimer, forMode: .common) }
+        if let fetchTimer { RunLoop.main.add(fetchTimer, forMode: .common) }
 
         installEditMenu()
         Config.adoptLegacyCalendarIfNeeded()
@@ -469,6 +482,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Fetching
 
     private func fetch() {
+        // Taken here rather than inside the feed path, so switching to Demo Mode
+        // or clearing the calendar also invalidates a request already in flight.
+        fetchGeneration += 1
         if Config.demoMode {
             loadDemoEvents()
         } else {
@@ -538,6 +554,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         timeline.errorMessage = nil
         timeline.events = all.filter { $0.intersects(bounds.from, bounds.to) }
         menuEvents = cycleEvents(all, now: Clock.now)
+        alertEvents = all
+        failingSince = nil
         lastFetch = Date()
     }
 
@@ -549,18 +567,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
-        // A local .ics file (handy for testing) — read it directly.
+        // The ticket taken by `fetch()`. Waking a Mac starts a fetch while the
+        // request from before it slept is still counting down its timeout, and
+        // switching calendars starts another; whichever finished last would
+        // otherwise win, even if it asked about the calendar you just left.
+        let token = fetchGeneration
+
+        // A local .ics file, read off the main thread — one on a network volume
+        // or a sleeping disk would otherwise stall the menu bar.
         if url.isFileURL {
-            do {
-                let text = try String(contentsOf: url, encoding: .utf8)
-                guard text.contains("BEGIN:VCALENDAR") else {
-                    showFailure("That file isn't iCalendar")
-                    return
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                let text = try? String(contentsOf: url, encoding: .utf8)
+                DispatchQueue.main.async {
+                    guard let self, token == self.fetchGeneration else { return }
+                    guard let text else {
+                        self.showFailure("Can't read \(url.lastPathComponent)")
+                        return
+                    }
+                    guard text.contains("BEGIN:VCALENDAR") else {
+                        self.showFailure("That file isn't iCalendar")
+                        return
+                    }
+                    self.timeline.errorMessage = nil
+                    self.applyICS(text)
                 }
-                timeline.errorMessage = nil
-                applyICS(text)
-            } catch {
-                showFailure("Can't read file: \(error.localizedDescription)")
             }
             return
         }
@@ -570,8 +600,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         request.timeoutInterval = 20
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            guard let self else { return }
             DispatchQueue.main.async {
+                guard let self, token == self.fetchGeneration else { return }
                 if let error {
                     self.showFailure("Calendar unreachable (\(error.localizedDescription))")
                     return
@@ -603,6 +633,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         timeline.events = all.filter { $0.intersects(bounds.from, bounds.to) }
         menuEvents = cycleEvents(all, now: Clock.now)
+        alertEvents = all
+        failingSince = nil
         lastFetch = Date()
     }
 
@@ -2310,9 +2342,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Show a fetch failure on the strip, and drop stale events so the menu
     /// doesn't keep listing a schedule we can no longer verify.
+    /// A failure keeps the last good day rather than throwing it away: Wi-Fi
+    /// hiccups and captive portals are routine over a long uptime, and a day five
+    /// minutes stale is worth more than no day at all. The strip itself shows the
+    /// error — it has room for one line, not both — but the dropdown still lists
+    /// the blocks and the alerts still fire from them. After half an hour of
+    /// failures the data really is unknown, and it goes.
     private func showFailure(_ message: String) {
-        timeline.events = []
-        menuEvents = []
+        let firstFailure = failingSince ?? Date()
+        failingSince = firstFailure
+        if Date().timeIntervalSince(firstFailure) > 1800 || timeline.events.isEmpty {
+            timeline.events = []
+            menuEvents = []
+            alertEvents = []
+        }
         timeline.errorMessage = message
     }
 
@@ -2330,6 +2373,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func reloadAfterSourceChange() {
         menuEvents = []
         timeline.events = []
+        // Otherwise the alerts keep announcing the calendar you just left.
+        alertEvents = []
+        failingSince = nil
         timeline.errorMessage = nil
         lastFetch = nil
         fetch()

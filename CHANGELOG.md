@@ -25,6 +25,25 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A hostile or broken feed can no longer crash the app.** An absurd `DURATION` reached an
+  `Int(_: Double)` conversion that traps rather than saturating, so a single bad event took the menu
+  down when it was opened; durations are now bounded and the countdown clamps before converting. Out
+  of range dates, a year-one recurrence and a NaN debug offset are all refused rather than trusted,
+  and the iCalendar parser has no force unwraps left.
+- **The chime survives a change of audio device.** Switching to headphones or Bluetooth tears down
+  the audio engine's node graph; playing into the wreckage of one raises an exception Swift can't
+  catch. The graph is now rebuilt on the next chime.
+- **A stale fetch can't overwrite a fresh one.** Every fetch takes a ticket, so a request left over
+  from before sleep — or from the calendar you just switched away from — is discarded when it lands.
+- **A network blip no longer blanks the day.** The last good events are kept for half an hour, so the
+  dropdown and the alerts survive a captive portal; the strip still shows the error.
+- Alerts watch the whole day rather than the dropdown's sleep-to-sleep cycle, so a late evening block
+  is no longer left unannounced.
+- Clicking through the volume rows no longer queues a full render per click: a superseded one is
+  cancelled before it costs anything.
+- A `.ics` file on a network volume is read off the main thread; a sound is held until it finishes
+  playing rather than being collected mid-chime; the chime is no longer silenced twice over when the
+  clocks go back.
 - **Tooltips no longer cover the submenu they belong to.** Hovering Time Block Alerts, Sound Hours,
   Westminster Chime — or Alert Sound, Voice Sound, Categories, Run at Startup — popped a description
   over the very options it was describing. Every row that opens a submenu now says what it needs to in

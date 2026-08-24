@@ -553,15 +553,36 @@ enum Alerts {
         }
     }
 
-    /// Deliberately a fresh `NSSound` each time rather than a cached one: an
-    /// alert is rare, the object is small, and a reused instance has to be
-    /// stopped before it can replay — which is unreliable, and a silent alert is
-    /// the one failure that matters here.
+    /// Sounds currently playing.
+    ///
+    /// A fresh `NSSound` each time rather than a cached one — a reused instance
+    /// has to be stopped before it can replay, which is unreliable, and a silent
+    /// alert is the one failure that matters. But an `NSSound` nobody holds can
+    /// be collected mid-playback and cut off, so each is kept until it says it
+    /// has finished.
+    private static var playing: [NSSound] = []
+    private static let soundWatcher = SoundWatcher()
+
+    private final class SoundWatcher: NSObject, NSSoundDelegate {
+        /// AppKit doesn't promise this arrives on the main thread, and `playing`
+        /// is a Swift array appended to from main — mutating it from two threads
+        /// corrupts it rather than merely racing.
+        func sound(_ sound: NSSound, didFinishPlaying finished: Bool) {
+            DispatchQueue.main.async { Alerts.playing.removeAll { $0 === sound } }
+        }
+    }
+
     static func play(_ name: String) {
         guard let sound = NSSound(named: NSSound.Name(name)) else {
             NSSound.beep()
             return
         }
+        // Anything finished is dropped here too, in case a delegate callback was
+        // missed; a sound still playing is never evicted, since holding it is the
+        // entire point.
+        playing.removeAll { !$0.isPlaying }
+        sound.delegate = soundWatcher
+        playing.append(sound)
         sound.play()
     }
 

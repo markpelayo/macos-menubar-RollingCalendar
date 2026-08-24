@@ -74,14 +74,22 @@ enum SoundHours {
         UserDefaults.standard.object(forKey: "soundHoursOn") as? Bool ?? true
     }
 
+    /// Decoded once and kept. `allows` is asked every second, and re-reading the
+    /// defaults and rebuilding the array each time is work for no one.
+    private static var cache: (encoded: [String], windows: [Window])?
+
     static var windows: [Window] {
         guard let stored = UserDefaults.standard.stringArray(forKey: "soundHours") else {
             return defaultWindows
         }
-        return stored.compactMap(Window.decode)
+        if let cache, cache.encoded == stored { return cache.windows }
+        let decoded = stored.compactMap(Window.decode)
+        cache = (stored, decoded)
+        return decoded
     }
 
     static func setWindows(_ list: [Window]) {
+        cache = nil
         var unique: [Window] = []
         for window in list where !unique.contains(window) { unique.append(window) }
         let sorted = unique.sorted { $0.start < $1.start }

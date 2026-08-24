@@ -60,6 +60,14 @@ enum ICS {
             let end = raw.end ?? start.addingTimeInterval(raw.isAllDay ? 86400 : 1800)
 
             if !raw.hasRRule {
+                // Only what the days asked for. Without this a multi-year
+                // calendar is parsed, colour-matched and sorted in full every
+                // five minutes, all of it on the main thread.
+                guard let first = days.first, let last = days.last,
+                      let dayAfter = calendar.date(byAdding: .day, value: 1,
+                                                   to: calendar.startOfDay(for: max(first, last))),
+                      end > calendar.startOfDay(for: min(first, last)),
+                      start < dayAfter else { continue }
                 out.append(CalEvent(title: raw.summary, start: start, end: end, isAllDay: raw.isAllDay))
                 continue
             }
@@ -114,12 +122,13 @@ enum ICS {
         var durationString: String?
 
         for line in unfold(text) {
-            if line.hasPrefix("BEGIN:VEVENT") {
+            let tag = line.trimmingCharacters(in: .whitespaces)
+            if tag == "BEGIN:VEVENT" {
                 current = RawEvent()
                 durationString = nil
                 continue
             }
-            if line.hasPrefix("END:VEVENT") {
+            if tag == "END:VEVENT" {
                 if var ev = current {
                     if ev.end == nil, let s = ev.start, let d = durationString,
                        let secs = parseDuration(d) {
@@ -144,34 +153,39 @@ enum ICS {
                 if kv.count == 2 { params[kv[0].uppercased()] = kv[1].trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
             }
 
+            // Bound rather than force-unwrapped eleven times over. `defer`
+            // writes it back at the end of this line's turn through the loop.
+            guard var event = current else { continue }
+            defer { current = event }
+
             switch name {
             case "SUMMARY":
-                current!.summary = unescape(value)
+                event.summary = unescape(value)
             case "STATUS":
-                if value.uppercased() == "CANCELLED" { current!.cancelled = true }
+                if value.uppercased() == "CANCELLED" { event.cancelled = true }
             case "UID":
-                current!.uid = value
+                event.uid = value
             case "DTSTART":
                 if let (d, allDay, tz) = parseDate(value, params) {
-                    current!.start = d
-                    current!.isAllDay = allDay
-                    current!.tz = tz
+                    event.start = d
+                    event.isAllDay = allDay
+                    event.tz = tz
                 }
             case "DTEND":
-                if let (d, _, _) = parseDate(value, params) { current!.end = d }
+                if let (d, _, _) = parseDate(value, params) { event.end = d }
             case "DURATION":
                 durationString = value
             case "RECURRENCE-ID":
-                if let (d, _, _) = parseDate(value, params) { current!.recurrenceID = d }
+                if let (d, _, _) = parseDate(value, params) { event.recurrenceID = d }
             case "EXDATE":
                 for piece in value.split(separator: ",").map(String.init) {
-                    if let (d, _, _) = parseDate(piece, params) { current!.exdates.append(d) }
+                    if let (d, _, _) = parseDate(piece, params) { event.exdates.append(d) }
                 }
             case "RRULE":
-                current!.hasRRule = true
+                event.hasRRule = true
                 for p in value.split(separator: ";") {
                     let kv = p.split(separator: "=", maxSplits: 1).map(String.init)
-                    if kv.count == 2 { current!.rrule[kv[0].uppercased()] = kv[1] }
+                    if kv.count == 2 { event.rrule[kv[0].uppercased()] = kv[1] }
                 }
             default:
                 break
@@ -194,7 +208,7 @@ enum ICS {
     /// reached from the fetch completion, which hops back to main first — so no
     /// locking is needed.
     private static var calendars: [String: Calendar] = [:]
-    private static let utc = TimeZone(identifier: "UTC") ?? TimeZone(secondsFromGMT: 0)!
+    private static let utc = TimeZone(identifier: "UTC") ?? .gmt
 
     private static func calendar(for zone: TimeZone) -> Calendar {
         if let cached = calendars[zone.identifier] { return cached }
@@ -299,7 +313,9 @@ enum ICS {
             case "P": sawP = true
             case "T": inTime = true
             case "-": return nil
-            case "0"..."9": number.append(ch)
+            case "0"..."9":
+                guard number.count < 9 else { return nil }   // no absurd magnitudes
+                number.append(ch)
             default:
                 guard let n = Double(number) else { return nil }
                 number = ""
@@ -313,7 +329,10 @@ enum ICS {
                 }
             }
         }
-        return sawP ? total : nil
+        // A year is already longer than anything this app can draw, and an
+        // unbounded duration would follow the event's end date out to infinity.
+        guard sawP, total.isFinite, total >= 0, total <= 366 * 86_400 else { return nil }
+        return total
     }
 
     // MARK: Recurrence
@@ -334,7 +353,10 @@ enum ICS {
         let interval = max(1, Int(rule["INTERVAL"] ?? "1") ?? 1)
 
         // UNTIL
-        if let untilStr = rule["UNTIL"], let (until, _, _) = parseDate(untilStr, [:]) {
+        // In the event's own zone: a date-only UNTIL read in the Mac's zone
+        // gains or loses an occurrence at the tail of every bounded recurrence.
+        if let untilStr = rule["UNTIL"],
+           let (until, _, _) = parseDate(untilStr, ["TZID": raw.tz.identifier]) {
             if targetDay > until { return nil }
         }
 
@@ -403,7 +425,10 @@ enum ICS {
 
     private static func startOfWeek(_ d: Date, _ cal: Calendar) -> Date {
         let weekday = cal.component(.weekday, from: d)
-        return cal.date(byAdding: .day, value: -(weekday - 1), to: cal.startOfDay(for: d))!
+        let midnight = cal.startOfDay(for: d)
+        // A feed may carry a date the calendar can't step back from — year 1, say
+        // — and a parser shouldn't trap on one.
+        return cal.date(byAdding: .day, value: -(weekday - 1), to: midnight) ?? midnight
     }
 
     private static func matchesNthWeekday(_ byDay: String, _ target: Date, _ cal: Calendar) -> Bool {
