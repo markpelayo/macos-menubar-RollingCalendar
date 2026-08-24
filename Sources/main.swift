@@ -1828,12 +1828,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return item
     }
 
-    /// One dropdown row:
-    ///
-    ///     ▶︎ 11:00 PM – 12:00 AM  •  ZD Chat+Email  •  ◼︎ Focus Work | Learn
-    ///
-    /// The colour chip sits inline after the name rather than as the item's
-    /// image, which would pin it to the far left.
     /// Width of a string in a given font, for laying out the columns.
     private static func textWidth(_ s: String, _ font: NSFont) -> CGFloat {
         ceil(NSAttributedString(string: s, attributes: [.font: font]).size().width)
@@ -1892,6 +1886,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }.count
     }
 
+    /// One dropdown row:
+    ///
+    ///     ▶︎ 11:00 PM – 12:00 AM  •  1h  •  ◼︎ Focus Work | Learn
+    ///
+    /// The colour chip sits inline after the name rather than as the item's
+    /// image, which would pin it to the far left.
     private static func eventRow(_ ev: CalEvent, now: Date, formatter: DateFormatter,
                                  layout: NSParagraphStyle,
                                  overlaps: Int = 1) -> NSAttributedString {
@@ -2062,7 +2062,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Anything NSSound can open. `audio` alone would also allow formats it
         // can't play, and a sound that copies in but stays silent is worse than
         // one that's refused up front.
-        panel.allowedContentTypes = [.aiff, .wav, .mp3, .mpeg4Audio]
+        panel.allowedContentTypes = Alerts.soundFileTypes.compactMap {
+            UTType(filenameExtension: $0)
+        }
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.level = .modalPanel

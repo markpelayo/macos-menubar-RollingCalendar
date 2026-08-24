@@ -20,9 +20,8 @@ All notable changes to this project are documented here. The format follows
   clock time once it's older than an hour — so a click no longer leaves you wondering whether it took.
 - **One date line instead of two rows.** The date header now reads
   `Week 35 · Monday · August 24, 2026 · Demo Calendar (test data)`, with a red **❗Simulated❗** on the
-  end when Debug Time has moved the clock — the same marker the strip uses. It's lighter and smaller
-  than the rows below in colour but not in size — it has to be readable at a glance — and it absorbs
-  the old separate
+  end when Debug Time has moved the clock — the same marker the strip uses. It's dimmer than the rows
+  below but the same size — it has to be readable at a glance — and it absorbs the old separate
   *Calendar:* caption, saving a line.
 - The week number is **ISO 8601**, so it means the same thing regardless of locale.
 - **"Demo Mode" is now "Demo Calendar"**, so it can't be confused with the simulated clock — two
@@ -60,6 +59,22 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **The Custom Sound… panel refused files the importer accepts.** It offered AIFF, WAV, MP3 and M4A
+  only, while `Alerts.soundFileTypes` also allows CAF, AIF and AAC — so a CAF the docs promised
+  could be imported couldn't be picked. The panel now builds its list from that one array, which is
+  the only way the two can't drift apart again.
+- **The UI walkthrough was numbered 1, 2, 2, 3, 4** and described the appearance block before the
+  calendar block, which is the reverse of the order the menu is built in.
+- **Three annotated screenshots showed a menu that no longer exists** — the two-row date header, the
+  old *Calendar:* caption, *Demo Mode* and *Restore Defaults* where *Restore Strip Settings* now is.
+  They are gone; the generated menu map, which is regenerated whenever the menu changes, is the
+  reference for the whole menu.
+- The Configuration table listed its rows in an order the menu doesn't use, carried a stale
+  duplicate **Updated hh:mm:ss** row, and omitted the first-run **Add Calendar…** item.
+- The alert summary in the README had the lead times the wrong way round (longest first is what the
+  code prints) and shortened the voice label in a way the menu never does.
+- The date caption's third state, **No calendar yet**, went unmentioned; the Debug Time section still
+  said the date line reads *· simulated*.
 - The README claimed **only today is loaded**; four days are (yesterday through the day after
   tomorrow), so the sleep-to-sleep cycle can find both of its boundaries.
 - It still advised checking for a **purple tint** that was removed several versions ago, two lines
@@ -72,7 +87,7 @@ All notable changes to this project are documented here. The format follows
   reads as a complete list of the menu; the Keyword Colors sketch omitted **Use Sample Colors** and
   **Save Sample CSV…**; and the first-run case, where *Add Calendar…* sits at the top level rather
   than inside a submenu, went unmentioned.
-- Midday's chime is **about 80 seconds**, not 70; there are five menu formatters, not four; two shell
+- Midday's chime is **about 80 seconds**, not 70; there are six menu formatters, not four; two shell
   scripts, not one; and **CAF** belongs in the list of sound formats the importer accepts.
 - The colour wheel in `docs/` is now shown in the Keyword Colors section rather than sitting unused.
 

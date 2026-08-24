@@ -24,7 +24,8 @@ cached, a recurrence rule is unsupported, or a time zone is misinterpreted.
 scheduling, reminders, alerting, attendance, billing, medication, or any safety-critical, medical,
 legal, financial, industrial or navigational purpose, or any other purpose where failure,
 inaccuracy, delay or omission could result in loss or harm.** It does not replace your calendar
-application, and it will not notify you of anything.
+application, and its alerts, spoken announcements and chime must not be relied upon as a
+notification system: they may be delayed, silenced by its own schedule, or not sound at all.
 
 ## 2. Assumption of risk
 
@@ -113,9 +114,9 @@ law, shall prevail.
 
 ## 10. Development status
 
-The Software is under active development and is not a finished product. Behaviour, defaults,
-stored preferences and interfaces may change at any time without notice or migration, and known
-defects and limitations exist — see the README.
+The Software is maintained on a best-effort basis with no release schedule and no support.
+Behaviour, defaults, stored preferences and interfaces may change at any time without notice or
+migration, and known defects and limitations exist — see the README.
 
 ## 11. Independent work
 

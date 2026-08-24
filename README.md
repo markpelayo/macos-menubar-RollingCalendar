@@ -33,7 +33,7 @@ macos-menubar-RollingCalendar 1.4.1  ·  by markpelayo
 
 ![A map of the whole menu, top to bottom](docs/ui-menu-map.png)
 
-The screenshots below are of the real menu, and cover it in four parts. They predate the project row, **Sound Hours**, **Time Block Alerts**, **Westminster Chime** and **Run at Startup** — the map above is the current order.
+The map above is the menu as it is built today; the walkthrough below takes it a block at a time, top to bottom.
 
 ### 1 · The date line
 
@@ -43,29 +43,27 @@ The day, the week and the source in one caption, dimmer than the rows beneath it
 Week 35  ·  Monday  ·  August 24, 2026  ·  Demo Calendar (test data)  ·  ❗Simulated❗
 ```
 
-The week number is **ISO 8601**, so "Week 35" means the same thing to anyone reading it rather than depending on where they live. The last part names whichever calendar is being read — a saved calendar by name, or the Demo Calendar — which is why there's no longer a separate *Calendar:* row. The red **❗Simulated❗** appears only when Debug Time has moved the clock, matching the marker on the strip.
-
-### 2 · Date and Debug Time
-
-![The date row, Debug Time and Reset to Current Time](docs/ui-menu-header.png)
+The week number is **ISO 8601**, so "Week 35" means the same thing to anyone reading it rather than depending on where they live. The last part names whichever calendar is being read — a saved calendar by name, the Demo Calendar, or *No calendar yet* when a saved calendar has been removed and the demo is off — which is why there's no longer a separate *Calendar:* row. The red **❗Simulated❗** appears only when Debug Time has moved the clock, matching the marker on the strip.
 
 ### 2 · The day's blocks
 
 ![The day list, with current blocks, colour chips and overlap badges annotated](docs/ui-menu-day.png)
 
-### 3 · Appearance and colours
+The rows are something to read, not something to press: a click does nothing and the menu stays open, and the row under the pointer picks up a soft yellow highlight so a list of sixty stays followable.
 
-![The appearance section: Time Range, Timeline Width, Labels, Label Length, Keyword Colors, Restore Defaults](docs/ui-menu-appearance.png)
+### 3 · Where the calendar comes from
+
+This block sits between the day's blocks and the strip settings: the list above it is what the calendar produced, and the settings below it are how that list is drawn. **Demo Calendar** and **Saved Calendars ▸** live here — see [Connecting your calendar](#connecting-your-calendar).
+
+### 4 · Appearance and colours
+
+**Time Range**, **Timeline Width**, **Labels**, **Label Length**, **Keyword Colors** and **Restore Strip Settings**: everything about how the strip is drawn, and nothing about what it draws.
+
+### 5 · Freshness and Refresh Now
 
 **Refresh Now (⌘R)** re-reads the feed immediately rather than waiting for the five-minute timer, and says so: the row reads **Refreshing…** and greys out while the request is in flight, and the line above it reads **Updated just now** for the first minute afterwards. That line is relative — *just now*, *3 minutes ago*, then the clock time past an hour — because the question it answers is "is what I'm looking at current?", and a bare timestamp leaves you doing the arithmetic.
 
 **What it can and can't do.** It guarantees the app re-downloads the feed, bypassing any local cache. It can't make Google republish: a public `.ics` is regenerated on Google's own schedule, often minutes and sometimes hours after you edit an event. If a change isn't showing, the app already has the newest file being served — the delay is upstream. Left alone, the app re-reads every **five minutes**, and also at launch and on waking from sleep.
-
-### 4 · Where the calendar comes from
-
-This block sits between the day's blocks and the strip settings: the list above it is what the calendar produced, and the settings below it are how that list is drawn.
-
-![The calendar section: current source, Demo Calendar and Saved Calendars](docs/ui-menu-source.png)
 
 ## Quick start
 
@@ -100,7 +98,6 @@ Nothing is baked into the app — it ships with no calendar configured, and read
 Feed calendars are saved as **named profiles**, so you can keep several and switch with one click:
 
 ```
-Calendar: Work (public feed)
 Saved Calendars ▸
     ✓ Work            ✏️  ✕
       Personal        ✏️  ✕
@@ -261,7 +258,7 @@ Under the date at the top of the dropdown, **Debug Time…** moves the app to an
 
 The simulated clock **keeps running** from the point you pick, so blocks still slide and countdowns still tick; it isn't frozen. Events are re-fetched for the simulated date, so you can jump to another day entirely.
 
-While it's active the left label gains a marker: `(❗Simulated❗) 🔴(2) Out of office (22m)`. Only the marker is bold — the rest of the label keeps its normal weight, so it reads as an annotation rather than changing the label itself. The date line also says `· simulated` and the menu shows the pretend time.
+While it's active the left label gains a marker: `(❗Simulated❗) 🔴(2) Out of office (22m)`. Only the marker is bold — the rest of the label keeps its normal weight, so it reads as an annotation rather than changing the label itself. The date line also ends with a red **❗Simulated❗** and the menu shows the pretend time.
 
 **Nothing is tinted, washed or dimmed.** The point of jumping to another time is to see the real colours at that time, so the strip is drawn exactly as it would be for real. **Reset to Current Time** puts it back, and the picker has a **Use Current Time** button.
 
@@ -311,7 +308,7 @@ Times are read the way people type them: `8`, `8am`, `6:30 PM`, `18:30`, `1830`,
 A heads-up shortly before a block starts — a system sound, the name spoken aloud, or both. Off until you set it up, and the menu is deliberately staged: **when**, then **how**, then **which blocks**. Each step stays greyed out until the one above it is answered, and the parent item is ticked only once an alert could actually happen.
 
 ```
-✓ Time Block Alerts: at start, 10m | Voice — Daniel ▸
+✓ Time Block Alerts: 10m, at start | Voice — British · male — Daniel ▸
                         Alert Me: 10 minutes, when it starts ▸
                                                        Off
                                                        When it starts       ✓
@@ -349,11 +346,11 @@ A heads-up shortly before a block starts — a system sound, the name spoken alo
 
 Each block is announced once *per lead time*, and an alert that's more than 30 seconds late — the app was launched mid-window, or the Mac was asleep — is marked done rather than announced, since saying "10 minutes before" with three minutes left is simply wrong. When two lead times land in the same second, the nearer number is the one spoken.
 
-**The parent item carries the whole configuration** — `Time Block Alerts: 10m, 1m | Voice — Daniel`, with `| 3 categories` appended when it isn't every category — so the setup is readable from the main menu without opening anything. Each row inside does the same for its own setting, and **Off** lives inside each submenu rather than as a separate checkbox: one control per decision.
+**The parent item carries the whole configuration** — `Time Block Alerts: 10m, 1m | Voice — British · male — Daniel`, longest lead time first, with `| 3 categories` appended when it isn't every category — so the setup is readable from the main menu without opening anything. Each row inside does the same for its own setting, and **Off** lives inside each submenu rather than as a separate checkbox: one control per decision.
 
 **Sound and speech are exclusive.** Choosing a sound switches the voice off, choosing a voice switches the sound off. One alert, one way of announcing itself — a chime under a sentence makes both harder to make out, and having to remember which of two checkboxes is on is worse than seeing one answer on the parent item.
 
-**The sounds are the ones macOS already ships** in `/System/Library/Sounds` — fourteen, quietest first, which is all Apple provides. Choosing one plays it. **Custom Sound…** copies an AIFF, WAV, CAF, M4A or MP3 into `~/Library/Sounds`, where `NSSound` can find it by name from then on; it appears in its own group below the system ones, and anything already in that folder is picked up automatically. A file macOS can't actually open is refused rather than copied in and left silent.
+**The sounds are the ones macOS already ships** in `/System/Library/Sounds` — fourteen, quietest first, which is all Apple provides. Choosing one plays it. **Custom Sound…** copies an AIFF, WAV, CAF, M4A, AAC or MP3 into `~/Library/Sounds`, where `NSSound` can find it by name from then on; it appears in its own group below the system ones, and anything already in that folder is picked up automatically. A file macOS can't actually open is refused rather than copied in and left silent.
 
 **When it starts** is a lead time of zero: the alert lands as the block begins rather than ahead of it — *"Focus Work, starting now"* rather than *"5 minutes before Focus Work"*. It's why the row above is called *Alert Me* rather than *Alert Me Before*, which that option would have contradicted. It fires within half a minute of the start; later than that the moment has passed, and it's skipped rather than announced late.
 
@@ -423,7 +420,7 @@ A quarter rings once, and only within five seconds of its moment — waking a sl
 
 ## Restore Defaults
 
-At the bottom of the menu, in its own block above Quit — where rare and destructive things belong, well away from anything pressed often. The strip-only reset above it is now called **Restore Strip Settings**, so each name states its own scope. This one keeps the ellipsis, because it is the gentler-sounding name and much the heavier action: the promise of a dialog is doing real work.
+At the bottom of the menu, in its own block above Quit — where rare and destructive things belong, well away from anything pressed often. The strip-only reset higher up the menu is now called **Restore Strip Settings**, so each name states its own scope. This one keeps the ellipsis, because it is the gentler-sounding name and much the heavier action: the promise of a dialog is doing real work.
 
 ```
 Restore everything to defaults?
@@ -488,22 +485,22 @@ Most of it is in the menu — click the strip:
 
 | Menu | What it does |
 |---|---|
+| **Debug Time… / Reset to Current Time** | Move the whole app to another moment, and back — see [Debug Time](#debug-time) |
+| **Demo Calendar** | A generated day, so the strip works before any calendar is connected |
+| **Saved Calendars ▸** | Public feeds kept as named profiles: switch, rename, remove |
+| **Add Calendar…** | Takes the place of *Saved Calendars ▸* until the first calendar is saved |
 | **Time Range ▸** | How much time is visible: ±5 min through ±2 hours (default ±1 hour) |
 | **Timeline Width ▸** | How much menu bar the timeline takes: 100 pt to 450 pt in 50 pt steps (default 250 pt) |
 | **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
 | **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 360 pt, about 47 characters) |
 | **Keyword Colors ▸** | Import a CSV of keyword → colour rules, load the bundled sample, save it out to edit, or clear it |
 | **Restore Strip Settings** | The strip only: back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Greyed out when nothing has been changed |
-| **Demo Calendar** | A generated day, so the strip works before any calendar is connected |
-| **Saved Calendars ▸** | Public feeds kept as named profiles: switch, rename, remove |
 | **Sound Hours ▸** | The hours in which the alerts and the chime may sound — several windows, midnight wrap allowed (default 11:30 AM – 4:30 AM) |
 | **Time Block Alerts ▸** | A sound or the block name spoken, as a block starts or at one or more lead times before it, for the categories you choose (**off** by default) |
 | **Westminster Chime ▸** | The hour, or every quarter, on synthesised bells — with the hour counted out (**off** by default) |
-| **Refresh Now (⌘R)** | Re-reads the feed immediately instead of waiting for the five-minute timer. Reads **Refreshing…** while a request is in flight |
-| **Updated …** | How fresh the day is: *just now*, *3 minutes ago*, or the clock time once it's older than an hour |
+| **Updated …** | How fresh the day is: *Not read yet*, *just now*, *3 minutes ago*, or the clock time once it's older than an hour — and **Refreshing…** while a request is in flight |
+| **Refresh Now (⌘R)** | Re-reads the feed immediately instead of waiting for the five-minute timer. Reads **Refreshing…** and greys out while a request is in flight |
 | **Run at Startup ▸** | Off, on, or on after a wait of 5–60 s (**off** by default) |
-| **Debug Time… / Reset to Current Time** | Move the whole app to another moment, and back — see [Debug Time](#debug-time) |
-| **Updated hh:mm:ss** | When the feed was last read successfully |
 | **Restore Defaults…** | A factory reset, confirmed first: every setting forgotten, saved calendars removed, back to Demo Calendar. Greyed out when everything already is at its defaults |
 | **Quit (⌘Q)** | Leaves nothing behind: no helper, and no login item unless you added one |
 
@@ -582,7 +579,7 @@ The strip redraws once a second and the feed is re-read every five minutes; noth
 |---|---|
 | The gutter labels | the second, the events, the settings or light/dark mode change |
 | The `Calendar` | the time zone changes |
-| The five menu `DateFormatter`s | never — they're created at launch |
+| The six menu `DateFormatter`s | never — they're created at launch |
 | The list of installed voices | a voice is downloaded, or the Mac wakes |
 | The list of alert sounds | one is imported, or the Mac wakes |
 | The Sound Hours windows | one is added, removed or switched |
@@ -614,7 +611,7 @@ What is stored locally: your settings, saved calendar links and imported keyword
 
 ## Disclaimer
 
-**This software is provided free of charge, "as is", without warranty or support of any kind, and is used entirely at your own risk.** It is a glanceable indicator, not a calendar, reminder or timekeeping system — it will never notify you of anything, and calendar data it shows may be stale, incomplete or absent. It must not be relied upon where inaccuracy, delay or failure could cause loss or harm. If you use a public iCalendar feed, you alone are responsible for what you make public. To the maximum extent permitted by law the author accepts no liability of any kind arising from its use, including missed appointments, disclosure of calendar data, or damage to any machine, system or data.
+**This software is provided free of charge, "as is", without warranty or support of any kind, and is used entirely at your own risk.** It is a glanceable indicator, not a calendar, reminder or timekeeping system — its alerts and chime must not be relied upon as a notification system, and calendar data it shows may be stale, incomplete or absent. It must not be relied upon where inaccuracy, delay or failure could cause loss or harm. If you use a public iCalendar feed, you alone are responsible for what you make public. To the maximum extent permitted by law the author accepts no liability of any kind arising from its use, including missed appointments, disclosure of calendar data, or damage to any machine, system or data.
 
 Not affiliated with, endorsed or supported by Google LLC.
 
