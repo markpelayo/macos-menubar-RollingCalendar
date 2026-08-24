@@ -365,6 +365,8 @@ The tune people mean by "Big Ben", on your own Mac's clock. It's separate from T
                         ─────────────────
                       ✓ Strike the Hour Count
                         Volume: 50% ▸        25% · 50% · 75% · 100%
+                                             35% ✕     ← your own
+                                             Add Custom…
                         ─────────────────
                         Hear It ▸            Quarter past · Half past · Quarter to · The hour
                         Stop Ringing
@@ -382,6 +384,8 @@ The tune people mean by "Big Ben", on your own Mac's clock. It's separate from T
 The hour is counted on a twelve-hour clock, so one o'clock is one blow and midday is twelve. That's exactly what this does, including the count.
 
 **It's synthesised, not sampled.** A recording of Big Ben is someone's copyright; the tune, written in 1793, is not. So the bells are built out of sine partials — a bell is a fundamental plus a stack of inharmonic overtones, the hum below it and the tierce a minor third above, each fading at its own rate. Nothing is bundled with the app and nothing is downloaded. It won't be mistaken for the Elizabeth Tower, but it is unmistakably the tune.
+
+**Volume** is the four obvious steps plus anything you add, since "50% is too much and 25% too little" is a real complaint a fixed list can't answer. **Add Custom…** takes a percentage from 1 to 100, selects it and keeps it in the list with an **✕**; deleting the one in use falls back to the nearest step rather than leaving the chime at a volume no row admits to. Zero isn't allowed — silence is what *Off* and Sound Hours are for. Picking any of them plays a sample, and the rows stay open so two can be compared.
 
 Timing is a little brisker than the real clock — notes 1.2 s apart, strikes 4 s — so midday takes about 70 seconds rather than two minutes. **Strike the Hour Count** off leaves just the tune, which is a good deal less imposing at midnight. The audio is rendered on a background thread when the quarter comes round, played through `AVAudioEngine`, and released when the last note dies away; the hardware is let go with it.
 

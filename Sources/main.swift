@@ -347,6 +347,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// so a toggle can update them without closing and rebuilding the menu.
     private weak var soundHoursItem: NSMenuItem?
     private weak var chimeItem: NSMenuItem?
+    private weak var chimeVolumeItem: NSMenuItem?
     private weak var alertsRootItem: NSMenuItem?
     private weak var alertLeadItem: NSMenuItem?
     private weak var alertSoundItem: NSMenuItem?
@@ -871,6 +872,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         alertsRootItem?.state = Alerts.isEnabled ? .on : .off
         chimeItem?.title = Westminster.menuTitle
             + (Westminster.mode == .off ? "" : Self.quietSuffix)
+        chimeVolumeItem?.title = "Volume: \(Westminster.volumePercent)%"
         alertLeadItem?.title = "Alert Me Before: \(Alerts.leadSummary)"
 
         alertSoundItem?.title = "Alert Sound: \(Alerts.playsSound ? Alerts.soundName : "Off")"
@@ -1134,10 +1136,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             + "at noon and midnight"
         sub.addItem(strikes)
 
-        let volume = NSMenuItem(title: "Volume: \(Int(Westminster.volume * 100))%",
+        let volume = NSMenuItem(title: "Volume: \(Westminster.volumePercent)%",
                                 action: nil, keyEquivalent: "")
         volume.submenu = chimeVolumeMenu()
         volume.isEnabled = Westminster.mode != .off
+        chimeVolumeItem = volume
         sub.addItem(volume)
 
         sub.addItem(.separator())
@@ -1155,18 +1158,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return sub
     }
 
+    /// The four steps, then anything you added. Rows stay open so two volumes
+    /// can be compared without reopening the menu each time.
     private func chimeVolumeMenu() -> NSMenu {
         let sub = NSMenu()
         sub.autoenablesItems = false
-        for level in Westminster.volumeChoices {
-            let item = NSMenuItem(title: "\(Int(level * 100))%",
-                                  action: #selector(chooseChimeVolume(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = level
-            item.state = abs(Westminster.volume - level) < 0.01 ? .on : .off
-            sub.addItem(item)
+
+        for percent in Westminster.volumePresets {
+            sub.addItem(volumeRow(percent, removable: false))
         }
+
+        let mine = Westminster.customVolumes
+        if !mine.isEmpty {
+            sub.addItem(.separator())
+            for percent in mine {
+                sub.addItem(volumeRow(percent, removable: true))
+            }
+        }
+
+        sub.addItem(.separator())
+        add("Add Custom…", #selector(addChimeVolume), to: sub)
+        addNote("Choosing one plays a sample", to: sub)
         return sub
+    }
+
+    private func volumeRow(_ percent: Int, removable: Bool) -> NSMenuItem {
+        toggleRow("\(percent)%",
+                  isOn: { Westminster.volumePercent == percent },
+                  toolTip: removable ? "Your own volume — the ✕ deletes it" : nil,
+                  remove: removable ? { Westminster.removeCustomVolume(percent) } : nil) {
+            Westminster.setVolumePercent(percent)
+            Westminster.ring(.quarterPast)      // so you can hear what you picked
+        }
     }
 
     /// Each quarter on demand, since the hour is the only one most people have
@@ -1868,10 +1891,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Westminster.setStrikesHour(!Westminster.strikesHour)
     }
 
-    @objc private func chooseChimeVolume(_ sender: NSMenuItem) {
-        guard let level = sender.representedObject as? Float else { return }
-        Westminster.setVolume(level)
-        Westminster.ring(.quarterPast)      // so you can hear what you picked
+    /// A percentage, because that's how the rest of the submenu talks about it.
+    @objc private func addChimeVolume() {
+        menu.cancelTracking()
+        NSApp.activate(ignoringOtherApps: true)
+
+        let alert = NSAlert()
+        alert.messageText = "Custom Chime Volume"
+        alert.informativeText = "How loud, as a percentage from 1 to 100? It's added to the list "
+            + "and selected, so you can pick it again later."
+        alert.addButton(withTitle: "Add")
+        alert.addButton(withTitle: "Cancel")
+
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 120, height: 24))
+        field.stringValue = "\(Westminster.volumePercent)"
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let text = field.stringValue
+            .replacingOccurrences(of: "%", with: "")
+            .trimmingCharacters(in: .whitespaces)
+        guard let percent = Int(text), (1...100).contains(percent) else {
+            showError("Couldn\u{2019}t read that volume", "Give a whole number from 1 to 100.")
+            return
+        }
+        Westminster.addCustomVolume(percent)
+        Westminster.ring(.quarterPast)
     }
 
     @objc private func previewChime(_ sender: NSMenuItem) {

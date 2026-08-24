@@ -61,16 +61,59 @@ enum Westminster {
         UserDefaults.standard.set(on, forKey: "chimeStrikesHour")
     }
 
-    static let volumeChoices: [Float] = [0.25, 0.5, 0.75, 1.0]
+    /// The four obvious steps. Anything between them comes from Add Custom…,
+    /// because "50% is too much and 25% too little" is a real complaint and a
+    /// fixed list can't answer it.
+    static let volumePresets = [25, 50, 75, 100]
 
+    /// 50% by default rather than some value between the steps, so one row in the
+    /// submenu is always ticked.
     static var volume: Float {
         let stored = UserDefaults.standard.float(forKey: "chimeVolume")
-        return stored > 0 ? stored : 0.6
+        return stored > 0 ? stored : 0.5
     }
 
+    /// Whole percent, which is how the menu talks about it.
+    static var volumePercent: Int { Int((volume * 100).rounded()) }
+
+    /// Volumes you added yourself, kept so they stay in the menu to pick again.
+    static var customVolumes: [Int] {
+        let stored = UserDefaults.standard.array(forKey: "chimeCustomVolumes") as? [Int] ?? []
+        return stored.filter { (1...100).contains($0) && !volumePresets.contains($0) }.sorted()
+    }
+
+    static func addCustomVolume(_ percent: Int) {
+        let clamped = min(max(percent, 1), 100)
+        guard !volumePresets.contains(clamped) else {
+            setVolumePercent(clamped)      // it's already a preset; just select it
+            return
+        }
+        var list = customVolumes
+        if !list.contains(clamped) { list.append(clamped) }
+        UserDefaults.standard.set(list.sorted(), forKey: "chimeCustomVolumes")
+        setVolumePercent(clamped)
+    }
+
+    /// Gone from the list. If it was the one in use, the nearest preset takes
+    /// over rather than leaving the chime at a volume with no row to show it.
+    static func removeCustomVolume(_ percent: Int) {
+        UserDefaults.standard.set(customVolumes.filter { $0 != percent },
+                                  forKey: "chimeCustomVolumes")
+        guard volumePercent == percent else { return }
+        let nearest = volumePresets.min { abs($0 - percent) < abs($1 - percent) } ?? 50
+        setVolumePercent(nearest)
+    }
+
+    static func setVolumePercent(_ percent: Int) {
+        setVolume(Float(min(max(percent, 1), 100)) / 100)
+    }
+
+    /// Never zero: silence is what Off and Sound Hours are for, and a chime you
+    /// can't hear looks like a bug rather than a setting.
     static func setVolume(_ value: Float) {
-        UserDefaults.standard.set(value, forKey: "chimeVolume")
-        player.volume = value
+        let clamped = min(max(value, 0.01), 1.0)
+        UserDefaults.standard.set(clamped, forKey: "chimeVolume")
+        player.volume = clamped
     }
 
     static var menuTitle: String { "Westminster Chime: \(mode.title)" }

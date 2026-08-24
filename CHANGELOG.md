@@ -15,6 +15,10 @@ All notable changes to this project are documented here. The format follows
   choice so "no limit" can't be confused with "nothing set". The default is **11:30 AM – 4:30 AM**.
 - Custom windows are typed in whatever form comes naturally — `8`, `8am`, `6:30 PM`, `18:30`, `1830`,
   `11.30pm` — and are added to the existing windows rather than replacing them.
+- **Custom chime volume.** The Westminster Chime's four steps are joined by any percentage you like,
+  1 to 100, added and selected from **Add Custom…** and kept in the list with an ✕. Deleting the one
+  in use falls back to the nearest step, zero is refused — silence is what Off is for — and the rows
+  stay open so two volumes can be compared without reopening the menu.
 - **An ✕ on every row you created**, in Sound Hours and on custom lead times alike: switching one off
   and deleting it are different intentions, and a list you keep adding to needs a way back down.
   Removal leaves the menu open, and the row dims rather than vanishing under the pointer.
