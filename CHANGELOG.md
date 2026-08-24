@@ -8,12 +8,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- **Reset Everything…**, in its own block above Quit. A factory reset: every setting forgotten, the
+- **Restore Defaults…**, in its own block above Quit. A factory reset: every setting forgotten, the
   LaunchAgent deleted, saved calendars removed and Demo Mode restored, exactly as on a first launch.
   It confirms first, itemising what will go, with **Cancel** as the default button — Return shouldn't
   be the fast path to a wipe. It clears the whole preference domain rather than a list of keys, so a
-  setting added later can't be left behind. Distinct from the appearance-only **Restore Defaults**,
-  which is unchanged.
+  setting added later can't be left behind. The strip-only reset is renamed **Restore Strip Settings**, so each name
+  states its own scope; it is otherwise unchanged.
 
 ### Changed
 

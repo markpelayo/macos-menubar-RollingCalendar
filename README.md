@@ -406,12 +406,12 @@ Timing is a little brisker than the real clock — notes 1.2 s apart, strikes 4 
 
 A quarter rings once, and only within five seconds of its moment — waking a sleeping Mac at twenty past shouldn't set the bells off for the quarter it slept through.
 
-## Reset Everything
+## Restore Defaults
 
-At the bottom of the menu, in its own block above Quit — where rare and destructive things belong, well away from anything pressed often. It's named apart from the appearance-only **Restore Defaults** because it does a great deal more, and the ellipsis promises what follows: a confirmation that itemises what's about to go.
+At the bottom of the menu, in its own block above Quit — where rare and destructive things belong, well away from anything pressed often. The strip-only reset above it is now called **Restore Strip Settings**, so each name states its own scope. This one keeps the ellipsis, because it is the gentler-sounding name and much the heavier action: the promise of a dialog is doing real work.
 
 ```
-Reset everything to defaults?
+Restore everything to defaults?
 
   •  The strip: ± 1 hour across 250 pt, all labels on
   •  Keyword colours: back to the built-in sample
@@ -474,7 +474,7 @@ Most of it is in the menu — click the strip:
 | **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
 | **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 360 pt, about 47 characters) |
 | **Keyword Colors ▸** | Import a CSV of keyword → colour rules, load the bundled sample, save it out to edit, or clear it |
-| **Restore Defaults** | Back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Greyed out when nothing has been changed |
+| **Restore Strip Settings** | The strip only: back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Greyed out when nothing has been changed |
 | **Demo Mode** | A generated day, so the strip works before any calendar is connected |
 | **Saved Calendars ▸** | Public feeds kept as named profiles: switch, rename, remove |
 | **Sound Hours ▸** | The hours in which the alerts and the chime may sound — several windows, midnight wrap allowed (default 11:30 AM – 4:30 AM) |
@@ -484,7 +484,7 @@ Most of it is in the menu — click the strip:
 | **Run at Startup ▸** | Off, on, or on after a wait of 5–60 s (**off** by default) |
 | **Debug Time… / Reset to Current Time** | Move the whole app to another moment, and back — see [Debug Time](#debug-time) |
 | **Updated hh:mm:ss** | When the feed was last read successfully |
-| **Reset Everything…** | A factory reset, confirmed first: every setting forgotten, saved calendars removed, back to Demo Mode |
+| **Restore Defaults…** | A factory reset, confirmed first: every setting forgotten, saved calendars removed, back to Demo Mode |
 | **Quit (⌘Q)** | Leaves nothing behind: no helper, and no login item unless you added one |
 
 The first row of the menu — `macos-menubar-RollingCalendar 1.4.1 · by markpelayo` — opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar). The version is read from the app bundle, so it always names the build you're running.

@@ -800,10 +800,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         keywords.submenu = keywordColoursMenu()
         menu.addItem(keywords)
 
-        let restore = add("Restore Defaults", #selector(restoreDefaults), to: menu)
+        let restore = add("Restore Strip Settings", #selector(restoreDefaults), to: menu)
         restore.isEnabled = !Config.isAppearanceDefault
         restore.toolTip = restore.isEnabled
-            ? "Back to ± 1 hour, a 250 pt timeline, 360 pt labels and all labels on"
+            ? "The strip only: ± 1 hour, a 250 pt timeline, 360 pt labels, all labels on"
             : "Already at the default settings"
 
         // --- Sounds --- their own block, gated by one schedule
@@ -854,10 +854,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(startup)
 
         // Rare and destructive, so it sits at the bottom where nothing else is
-        // pressed by accident — and named differently from the appearance-only
-        // Restore Defaults above, because it does a great deal more.
+        // pressed by accident. It keeps the ellipsis: this is the gentler-sounding
+        // of the two names and by far the heavier action, so the promise of a
+        // dialog is doing real work.
         menu.addItem(.separator())
-        add("Reset Everything…", #selector(resetEverything), to: menu)
+        add("Restore Defaults…", #selector(resetEverything), to: menu)
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -1839,7 +1840,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let calendars = saved == 1 ? "1 saved calendar" : "\(saved) saved calendars"
 
         let alert = NSAlert()
-        alert.messageText = "Reset everything to defaults?"
+        alert.messageText = "Restore everything to defaults?"
         alert.informativeText = """
         This forgets every setting and starts again as though freshly built:
 
@@ -1853,7 +1854,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Your calendars themselves are untouched — only the links saved here are         forgotten. This can't be undone.
         """
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Reset Everything")
+        alert.addButton(withTitle: "Restore Defaults")
         alert.addButton(withTitle: "Cancel")
         // Cancel is the safe answer, so make it the one Return picks.
         alert.buttons.first?.keyEquivalent = ""
