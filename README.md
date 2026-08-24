@@ -51,6 +51,8 @@ The screenshots below are of the real menu, and cover it in four parts. They pre
 
 ### 4 · Where the calendar comes from
 
+This block now sits directly under Debug Time, above the day's blocks — the source of the list belongs beside the list, not at the far end of the menu.
+
 ![The calendar section: current source, Demo Mode and Saved Calendars](docs/ui-menu-source.png)
 
 ## Quick start

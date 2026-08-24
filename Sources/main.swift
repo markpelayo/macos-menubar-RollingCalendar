@@ -708,6 +708,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        // --- Which source is live ---
+        if Config.demoMode {
+            addInfo("Calendar: demo blocks (test data)", to: menu)
+        } else if let name = Config.calendarDisplayName {
+            addInfo("Calendar: \(name)", to: menu)
+        } else {
+            addInfo("No calendar set up yet", to: menu)
+        }
+
+        // Demo toggle stays reachable in every state.
+        let demoItem = add("Demo Mode", #selector(toggleDemoMode), to: menu)
+        demoItem.state = Config.demoMode ? .on : .off
+        demoItem.toolTip = "Synthetic 15-minute blocks, to check the strip moves correctly"
+
+        if Config.profiles.isEmpty {
+            add("Add Calendar…", #selector(addCalendarProfile), to: menu)
+        } else {
+            let saved = NSMenuItem(title: "Saved Calendars", action: nil, keyEquivalent: "")
+            saved.submenu = savedCalendarsMenu()
+            // Ticked when a saved calendar is what's actually being read, so it
+            // reads as the counterpart to Demo Mode above it.
+            saved.state = (!Config.demoMode && Config.hasCalendarInput) ? .on : .off
+            menu.addItem(saved)
+        }
+
+        menu.addItem(.separator())
+
         // --- The day's blocks, one anchor-to-anchor cycle ---
         if let msg = timeline.errorMessage {
             addInfo(msg, to: menu)
@@ -778,33 +805,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         restore.toolTip = restore.isEnabled
             ? "Back to ± 1 hour, a 250 pt timeline, 360 pt labels and all labels on"
             : "Already at the default settings"
-
-        menu.addItem(.separator())
-
-        // --- Which source is live ---
-        if Config.demoMode {
-            addInfo("Calendar: demo blocks (test data)", to: menu)
-        } else if let name = Config.calendarDisplayName {
-            addInfo("Calendar: \(name)", to: menu)
-        } else {
-            addInfo("No calendar set up yet", to: menu)
-        }
-
-        // Demo toggle stays reachable in every state.
-        let demoItem = add("Demo Mode", #selector(toggleDemoMode), to: menu)
-        demoItem.state = Config.demoMode ? .on : .off
-        demoItem.toolTip = "Synthetic 15-minute blocks, to check the strip moves correctly"
-
-        if Config.profiles.isEmpty {
-            add("Add Calendar…", #selector(addCalendarProfile), to: menu)
-        } else {
-            let saved = NSMenuItem(title: "Saved Calendars", action: nil, keyEquivalent: "")
-            saved.submenu = savedCalendarsMenu()
-            // Ticked when a saved calendar is what's actually being read, so it
-            // reads as the counterpart to Demo Mode above it.
-            saved.state = (!Config.demoMode && Config.hasCalendarInput) ? .on : .off
-            menu.addItem(saved)
-        }
 
         // --- Sounds --- their own block, gated by one schedule
         menu.addItem(.separator())
