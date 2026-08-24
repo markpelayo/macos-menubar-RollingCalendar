@@ -63,7 +63,7 @@ chmod +x build.sh
 open build/RollingCalendar.app
 ```
 
-Needs macOS 13+ and Xcode Command Line Tools (`xcode-select --install`) for `swiftc`. No packages, no dependencies, no Xcode project — two shell scripts and thirteen Swift files.
+Needs macOS 13+ and Xcode Command Line Tools (`xcode-select --install`) for `swiftc`. No packages, no dependencies, no Xcode project — two shell scripts and fourteen Swift files.
 
 **It starts in Demo Mode**, showing a realistic time-blocked day, so you can see it working before connecting anything. Click the strip → **Demo Mode** to turn that off once you've set up a real calendar.
 
@@ -132,6 +132,8 @@ Rows read `time • duration • name • category`, with the category's colour 
 ```
 
 ![One row broken down: start–end, duration, block name, colour chip with category, overlap badge](docs/ui-menu-row.png)
+
+The rows are for reading: they highlight under the pointer so a long list stays followable, but a click does nothing rather than closing the menu.
 
 Every column lines up exactly, which takes three things: hours are zero-padded; times and durations use **tabular figures**, since SF's default digits are proportional and `1` is narrower than the rest; and each field sits on a **tab stop** measured from the widest time and duration in the list.
 
@@ -520,6 +522,7 @@ Four days are loaded — yesterday through the day after tomorrow — so the sle
 | `Sources/LoginItem.swift` | The LaunchAgent behind Run at Startup |
 | `Sources/ToggleRowView.swift` | Menu rows that toggle without dismissing the menu |
 | `Sources/ProjectRowView.swift` | The dim, clickable first row that opens the project page |
+| `Sources/EventRowView.swift` | A day-list row: highlights on hover, ignores the click |
 | `Sources/DemoData.swift` | A realistic time-blocked day for Demo Mode, overlaps included |
 | `build.sh` | Compiles and packages the `.app` (LSUIElement, ad-hoc signed) |
 | `examples/` | Importable 15-minute test calendars |

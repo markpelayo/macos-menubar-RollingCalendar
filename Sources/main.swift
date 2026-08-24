@@ -721,10 +721,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
                 lastDay = day
 
-                let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-                item.attributedTitle = Self.eventRow(
+                // A view rather than a plain item: these are for reading, and a
+                // stray click shouldn't close the menu — see EventRowView.
+                let row = EventRowView(content: Self.eventRow(
                     ev, now: now, formatter: df, layout: layout,
-                    overlaps: Self.overlapCount(ev, in: menuEvents))
+                    overlaps: Self.overlapCount(ev, in: menuEvents)))
+                let item = NSMenuItem()
+                item.view = row
                 menu.addItem(item)
                 shown += 1
             }
@@ -835,6 +838,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+
+        // The day rows and the project row are views, so they need stretching to
+        // the menu's real width — otherwise their highlight stops short.
+        alignRowViews(in: menu)
     }
 
     /// A heads-up before a block starts. Deliberately staged: the lead time

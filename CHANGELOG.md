@@ -6,9 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.4.1] — 2026-08-24
 
-Documentation only: the app is unchanged from 1.4.0 apart from the version it reports.
-
 ### Changed
+
+- **The day's blocks no longer dismiss the menu when clicked.** They're something to read, not
+  something to press, and losing the whole menu to a stray click while reading a list of sixty was a
+  poor trade for a click that had nothing to do. They still highlight under the pointer, which is
+  what makes a long list followable — but faintly rather than in full selection blue, since the text
+  is already carrying meaning in its colours: dim for past, bold for now, a chip per category.
 
 - The project is no longer labelled *in development*. It's in daily use, and what it deliberately
   doesn't do is listed under Known limitations instead — now including that it only ever reads a
