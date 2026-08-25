@@ -172,6 +172,7 @@ enum Config {
         abs(windowMinutes - defaultWindowMinutes) < 0.01
             && abs(Double(timelineWidth) - defaultTimelineWidth) < 0.01
             && abs(Double(maxLabelWidth) - defaultMaxLabelWidth) < 0.01
+            && !isFlashing
             && labelKeys.allSatisfy { flag($0) }
     }
 
@@ -228,6 +229,7 @@ enum Config {
         d.removeObject(forKey: "windowMinutes")
         d.removeObject(forKey: "timelineWidth")
         d.removeObject(forKey: "maxLabelWidth")
+        d.removeObject(forKey: "endingFlashSeconds")
         for key in labelKeys { d.removeObject(forKey: key) }
     }
 
@@ -258,6 +260,42 @@ enum Config {
     static var urgentSeconds: TimeInterval {
         let v = UserDefaults.standard.double(forKey: "urgentSeconds")
         return v > 0 ? v : 120
+    }
+
+    // MARK: Ending Soon Flash
+
+    /// How long before a block ends the left label starts flashing, or zero for
+    /// never — which is the default.
+    ///
+    /// Deliberately separate from `urgentSeconds`. Steady red says "this is
+    /// nearly over" and costs nothing to ignore; a flash is a demand for
+    /// attention, and something that demands attention in your menu bar all day
+    /// should be a thing you asked for rather than a thing you have to find the
+    /// switch for.
+    /// Total for any stored value: a nonsense number written by hand with
+    /// `defaults write` must not reach `Int(_:)`, which traps on anything it
+    /// can't represent — and the menu title does exactly that conversion.
+    static var flashSeconds: TimeInterval {
+        let v = UserDefaults.standard.double(forKey: "endingFlashSeconds")
+        return v.isFinite ? min(max(v, 0), 3600) : 0
+    }
+
+    static var isFlashing: Bool { flashSeconds > 0 }
+
+    static func setFlashSeconds(_ seconds: Double) {
+        UserDefaults.standard.set(max(seconds, 0), forKey: "endingFlashSeconds")
+    }
+
+    /// One minute is "I need to wrap up"; ten is "start finding a stopping
+    /// point". Longer than that and the flash is on for most of a short block,
+    /// which stops it meaning anything.
+    static let flashChoices: [Double] = [60, 120, 300, 600]
+
+    /// The whole setting, readable from the main menu without opening it.
+    static var flashMenuTitle: String {
+        guard isFlashing else { return "Ending Soon Flash: Off" }
+        let minutes = Int((flashSeconds / 60).rounded())
+        return "Ending Soon Flash: \(minutes) min before the end"
     }
 
     /// The block that marks the start of your day in the dropdown. Everything
@@ -843,6 +881,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         length.submenu = labelLengthMenu()
         menu.addItem(length)
 
+        let flash = NSMenuItem(title: Config.flashMenuTitle, action: nil, keyEquivalent: "")
+        flash.submenu = endingFlashMenu()
+        flash.state = Config.isFlashing ? .on : .off
+        flash.toolTip = "Flash the name of the block you're in, in red, as it nears its end"
+        menu.addItem(flash)
+
         let keywords = NSMenuItem(title: "Keyword Colors", action: nil, keyEquivalent: "")
         keywords.submenu = keywordColoursMenu()
         menu.addItem(keywords)
@@ -850,7 +894,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let restore = add("Restore Strip Settings", #selector(restoreDefaults), to: menu)
         restore.isEnabled = !Config.isAppearanceDefault
         restore.toolTip = restore.isEnabled
-            ? "The strip only: ± 1 hour, a 250 pt timeline, 360 pt labels, all labels on"
+            ? "The strip only: ± 1 hour, a 250 pt timeline, 360 pt labels, all labels on, no flash"
             : "Already at the default settings"
 
         // --- Sounds --- their own block, gated by one schedule
@@ -1601,6 +1645,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return sub
     }
 
+    /// When the name of the block you're in starts flashing red, on its way out.
+    ///
+    /// Off lives inside the submenu rather than beside it, the way every other
+    /// staged setting in this menu works: one control, one decision, and the
+    /// answer readable from the parent row without opening anything.
+    private func endingFlashMenu() -> NSMenu {
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        let off = NSMenuItem(title: "Off", action: #selector(chooseEndingFlash(_:)),
+                             keyEquivalent: "")
+        off.target = self
+        off.representedObject = 0.0
+        off.state = Config.isFlashing ? .off : .on
+        off.toolTip = "The label still turns red for the last two minutes; it just doesn't flash"
+        sub.addItem(off)
+
+        sub.addItem(.separator())
+
+        for seconds in Config.flashChoices {
+            let minutes = Int((seconds / 60).rounded())
+            let title = minutes == 1 ? "1 minute before the end"
+                                     : "\(minutes) minutes before the end"
+            let item = NSMenuItem(title: title, action: #selector(chooseEndingFlash(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = seconds
+            item.state = abs(Config.flashSeconds - seconds) < 0.01 ? .on : .off
+            sub.addItem(item)
+        }
+
+        sub.addItem(.separator())
+        let note = NSMenuItem(title: "The name blinks red once a second — nothing else changes",
+                              action: nil, keyEquivalent: "")
+        note.isEnabled = false
+        sub.addItem(note)
+        return sub
+    }
+
     /// How long an event name may get before it's shortened with an ellipsis.
     /// Each option is annotated with the character count it works out to, since
     /// points aren't much use for judging that by eye.
@@ -2292,6 +2375,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func resetDebugTime() {
         Config.clearDebugTime()
         reloadAfterSourceChange()
+    }
+
+    @objc private func chooseEndingFlash(_ sender: NSMenuItem) {
+        guard let seconds = sender.representedObject as? Double else { return }
+        Config.setFlashSeconds(seconds)
+        redrawNow()
     }
 
     @objc private func chooseLabelLength(_ sender: NSMenuItem) {

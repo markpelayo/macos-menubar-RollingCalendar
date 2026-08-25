@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] — 2026-08-25
+
+### Added
+
+- **Ending Soon Flash**, below Label Length: the name of the block you're in blinks red once a
+  second as it nears its end. **Off by default** — something blinking in the menu bar is a demand
+  for attention, and one you didn't ask for is a distraction — and armed by choosing how early it
+  starts: 1, 2, 5 or 10 minutes before the end, with **Off** inside the submenu rather than beside
+  it, the way every other staged setting here works.
+- It doesn't replace the steady warning. The label still turns red and bold for the final two
+  minutes whatever the flash is set to, and both use the same red rather than inventing a second
+  one: set the flash to five or ten minutes and an early nudge hardens into a solid red as the
+  block actually runs out.
+- Only the colour alternates — the weight is held constant while the flash is on, so the label
+  can't jitter and the menu bar item can't resize under the blink.
+- There is **no second timer**. The blink phase is read from the clock the strip already consults
+  once a second to recompose its labels, so it costs nothing while it's off and nothing extra while
+  it's on.
+- It's a strip setting like the others, so **Restore Strip Settings** switches it off again and
+  greys itself out when it's already off.
+
 ## [1.4.2] — 2026-08-25
 
 ### Changed
@@ -343,6 +364,8 @@ First public release.
 - Recurring events are handled for a common subset of RFC 5545 — `RRULE` with `FREQ`, `INTERVAL`,
   `COUNT`, `UNTIL`, `BYDAY`, plus `EXDATE` and `RECURRENCE-ID` overrides.
 
+[1.5.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.5.0
+[1.4.2]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.4.2
 [1.4.1]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.4.1
 [1.4.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.4.0
 [1.3.1]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.3.1

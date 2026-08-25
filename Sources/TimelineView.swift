@@ -33,6 +33,17 @@ final class TimelineView: NSView {
     /// How long before a block ends the left label starts shouting.
     static var urgentThreshold: TimeInterval { Config.urgentSeconds }
 
+    /// Which half of the blink we're in.
+    ///
+    /// Read from the clock rather than kept in a timer of its own: the strip
+    /// already recomposes its labels once a second, so the phase changes with
+    /// them for nothing — no second timer to wake the app, and no drift.
+    private static func flashIsLit(_ now: Date) -> Bool {
+        let raw = now.timeIntervalSince1970
+        let stamp = raw.isFinite ? min(max(raw, -1e12), 1e12) : 0
+        return Int(stamp.rounded(.down)) % 2 == 0
+    }
+
     override var isFlipped: Bool { false }
 
     /// Let clicks fall through to the status bar button so the menu still opens.
@@ -99,6 +110,7 @@ final class TimelineView: NSView {
         hasher.combine(Config.showNextDuration)
         hasher.combine(Config.isSimulating)
         hasher.combine(Config.urgentSeconds)
+        hasher.combine(Config.flashSeconds)
         return hasher.finalize()
     }
 
@@ -138,8 +150,21 @@ final class TimelineView: NSView {
         if let current {
             let remaining = current.end.timeIntervalSince(now)
             // Red and bold for the last two minutes — colour alone was easy to
-            // miss at a glance.
+            // miss at a glance. Ending Soon Flash, if it's on, starts earlier
+            // and blinks; the two share the same red rather than inventing a
+            // second one.
             let urgent = remaining <= Self.urgentThreshold
+            // Off by default: a flashing menu bar is a demand for attention, and
+            // one you didn't ask for is just a distraction. When it is on, the
+            // name alternates between red and its usual colour each second —
+            // the weight doesn't change with it, so the label can't jitter.
+            // The last two minutes belong to the steady red: an early nudge
+            // that hardens into a solid warning is a clearer story than a light
+            // that blinks all the way to the end, and it means the weight never
+            // changes mid-block either.
+            let flashing = Config.isFlashing && !urgent && remaining <= Config.flashSeconds
+            let shouting = urgent || flashing
+            let lit = !flashing || Self.flashIsLit(now)
             // 🔴 means "two things want you right now". It counts only what is
             // genuinely concurrent, so a reminder that fires and finishes in the
             // same instant raises the flag briefly and then lets it go, rather
@@ -150,7 +175,7 @@ final class TimelineView: NSView {
                 Segment(text: clash > 1 ? "🔴(\(clash))" : ""),
                 Segment(text: Config.showNowName ? current.title : "", truncatable: true),
                 Segment(text: Config.showNowTimeLeft ? "(\(Self.format(remaining)))" : "")
-            ], cap: cap, color: urgent ? .systemRed : normalInk,
+            ], cap: cap, color: shouting && lit ? .systemRed : normalInk,
                baseBold: urgent, alignment: .right)
         } else if Config.isSimulating {
             // Nothing running, but still say we're pretending.
