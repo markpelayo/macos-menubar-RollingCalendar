@@ -2,11 +2,11 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform: macOS 13+](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey)](#quick-start)
-[![Release: v1.6.1](https://img.shields.io/badge/release-v1.6.1-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
+[![Release: v1.6.2](https://img.shields.io/badge/release-v1.6.2-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
 
 A macOS menu bar app that draws today's calendar as a horizontal timeline scrolling past a fixed "now" marker. Instead of asking *what time is my next thing*, you glance up and see where you are.
 
-It's in daily use, and [v1.6.1](CHANGELOG.md) is the current release. What it deliberately doesn't do is listed under [Known limitations](#known-limitations).
+It's in daily use, and [v1.6.2](CHANGELOG.md) is the current release. What it deliberately doesn't do is listed under [Known limitations](#known-limitations).
 
 ## The UI
 
@@ -28,7 +28,7 @@ The strip is deliberately small — it lives in the menu bar and is meant to be 
 Clicking it opens the day's blocks, and everything else lives in that menu. The first row names the app, the version it's actually running — read from the bundle, so it can't disagree with the binary — and opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar):
 
 ```
-macos-menubar-RollingCalendar 1.6.1  ·  by markpelayo
+macos-menubar-RollingCalendar 1.6.2  ·  by markpelayo
 ```
 
 ![A map of the whole menu, top to bottom](docs/ui-menu-map.png)
@@ -57,7 +57,7 @@ This block sits between the day's blocks and the strip settings, and holds every
 
 ### 4 · The strip itself
 
-**Time Range**, **Timeline Width**, **Labels**, **Label Length** and **Restore Strip Settings**: geometry, and nothing else — how much time is visible, how much menu bar it takes, and how long a name may get.
+**Time Range**, **Timeline Width**, **Labels**, **Label Length** and **Reset Strip Settings**: geometry, and nothing else — how much time is visible, how much menu bar it takes, and how long a name may get.
 
 ### 5 · Freshness and Refresh Now
 
@@ -273,7 +273,7 @@ The name of the block you're in goes **bold** and alternates between red and its
 
 It doesn't replace the steady warning, it starts earlier and does more: without it the label still turns red and bold on its own for the final two minutes, and both use the same red rather than inventing a second one.
 
-**Why it's off unless you ask.** Something blinking in your menu bar is a demand for attention, and a demand you didn't ask for is just a distraction — for a strip designed to be glanceable, that's the wrong default. It's about the blocks rather than the geometry, so **Restore Strip Settings** deliberately leaves it alone — a reset for range, width and labels shouldn't quietly switch off a warning you rely on. **Restore Defaults…** at the foot of the menu clears it, along with everything else.
+**Why it's off unless you ask.** Something blinking in your menu bar is a demand for attention, and a demand you didn't ask for is just a distraction — for a strip designed to be glanceable, that's the wrong default. It's about the blocks rather than the geometry, so **Reset Strip Settings** deliberately leaves it alone — a reset for range, width and labels shouldn't quietly switch off a warning you rely on. **Restore Defaults…** at the foot of the menu clears it, along with everything else.
 
 There's no extra timer behind it: the strip already recomposes its labels once a second, so the blink rides that tick and costs nothing while it's off.
 
@@ -445,7 +445,7 @@ A quarter rings once, and only within five seconds of its moment — waking a sl
 
 ## Restore Defaults
 
-At the bottom of the menu, in its own block above Quit — where rare and destructive things belong, well away from anything pressed often. The strip-only reset higher up the menu is now called **Restore Strip Settings**, so each name states its own scope. This one keeps the ellipsis, because it is the gentler-sounding name and much the heavier action: the promise of a dialog is doing real work.
+At the bottom of the menu, in its own block above Quit — where rare and destructive things belong, well away from anything pressed often. The geometry-only reset higher up the menu is called **Reset Strip Settings**: *reset* and *restore defaults* read as two different actions, where two rows both starting *Restore* would read as the same one twice. This one keeps the ellipsis, because it is the gentler-sounding name and much the heavier action: the promise of a dialog is doing real work.
 
 ```
 Restore everything to defaults?
@@ -458,7 +458,7 @@ Restore everything to defaults?
   •  2 saved calendars: removed, leaving Demo Calendar
 ```
 
-**Greyed out when there's nothing to restore**, the same courtesy *Restore Strip Settings* pays. That's asked of each feature in turn — the strip, Ending Soon Flash, the calendar, the colours, the alerts, the chime, Sound Hours, Run at Startup, Debug Time — rather than by checking whether any preferences are stored: a first launch writes keys of its own, so "nothing stored" and "nothing changed" aren't the same question.
+**Greyed out when there's nothing to restore**, the same courtesy *Reset Strip Settings* pays. That's asked of each feature in turn — the strip, Ending Soon Flash, the calendar, the colours, the alerts, the chime, Sound Hours, Run at Startup, Debug Time — rather than by checking whether any preferences are stored: a first launch writes keys of its own, so "nothing stored" and "nothing changed" aren't the same question.
 
 It removes the whole preference domain rather than a list of keys, so a setting added in some later version can't be left behind by an out-of-date list, and it deletes the LaunchAgent explicitly — that's a file rather than a preference, and would otherwise go on launching an app that has forgotten it asked. **Cancel is the default button**, since Return should not be the fast path to a wipe.
 
@@ -520,7 +520,7 @@ Most of it is in the menu — click the strip:
 | **Timeline Width ▸** | How much menu bar the timeline takes: 100 pt to 450 pt in 50 pt steps (default 250 pt) |
 | **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
 | **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 360 pt, about 47 characters) |
-| **Restore Strip Settings** | Geometry only: back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Leaves Ending Soon Flash alone. Greyed out when nothing has been changed |
+| **Reset Strip Settings** | Geometry only: back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on. Leaves Ending Soon Flash alone. Greyed out when nothing has been changed |
 | **Sound Hours ▸** | The hours in which the alerts and the chime may sound — several windows, midnight wrap allowed (default 11:30 AM – 4:30 AM) |
 | **Time Block Alerts ▸** | A sound or the block name spoken, as a block starts or at one or more lead times before it, for the categories you choose (**off** by default) |
 | **Westminster Chime ▸** | The hour, or every quarter, on synthesised bells — with the hour counted out (**off** by default) |
@@ -530,7 +530,7 @@ Most of it is in the menu — click the strip:
 | **Restore Defaults…** | A factory reset, confirmed first: every setting forgotten, saved calendars removed, back to Demo Calendar. Greyed out when everything already is at its defaults |
 | **Quit (⌘Q)** | Leaves nothing behind: no helper, and no login item unless you added one |
 
-The first row of the menu — `macos-menubar-RollingCalendar 1.6.1 · by markpelayo` — opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar). The version is read from the app bundle, so it always names the build you're running.
+The first row of the menu — `macos-menubar-RollingCalendar 1.6.2 · by markpelayo` — opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar). The version is read from the app bundle, so it always names the build you're running.
 
 The two are independent: **range** decides how much time you see, **width** decides how much space it gets. Together they set how big a block looks — at the default ±1 hour across 250 pt, a 15-minute block is about 31 pt wide; narrow the range to ±15 minutes at the same width and it grows to 125 pt. Each width option's tooltip does that arithmetic for you, and the note at the foot of the menu shows the current result.
 
@@ -650,13 +650,13 @@ Issues and pull requests are welcome. Keep it dependency-free and keep the idle 
 ## Releases
 
 Versions are tagged and described in [CHANGELOG.md](CHANGELOG.md), which is the only copy of the
-notes — `./release-notes.sh 1.6.1` prints one version's section for a release body. The same notes appear on the
+notes — `./release-notes.sh 1.6.2` prints one version's section for a release body. The same notes appear on the
 [releases page](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases). Each release
 carries source only — no app bundle, for the notarisation reason above — so installing a given
 version means checking out its tag and running `./build.sh`:
 
 ```bash
-git checkout v1.6.1
+git checkout v1.6.2
 ./build.sh
 ```
 

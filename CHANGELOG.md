@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] — 2026-08-26
+
+### Changed
+
+- **Restore Strip Settings is now Reset Strip Settings.** Two rows in the same menu both beginning
+  *Restore* read as the same action twice, and the longer name sat above the heavier one, which
+  inverts the weight; *reset* and *restore defaults* read as two different things, which is what
+  they are.
+
 ## [1.6.1] — 2026-08-26
 
 ### Fixed
@@ -420,6 +429,7 @@ First public release.
 - Recurring events are handled for a common subset of RFC 5545 — `RRULE` with `FREQ`, `INTERVAL`,
   `COUNT`, `UNTIL`, `BYDAY`, plus `EXDATE` and `RECURRENCE-ID` overrides.
 
+[1.6.2]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.6.2
 [1.6.1]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.6.1
 [1.6.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.6.0
 [1.5.1]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.5.1

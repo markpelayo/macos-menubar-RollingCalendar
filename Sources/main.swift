@@ -177,7 +177,7 @@ enum Config {
 
     /// True when every setting the app owns already matches a fresh launch, so
     /// the reset at the foot of the menu can grey itself out rather than offering
-    /// to change nothing — the same courtesy Restore Strip Settings pays.
+    /// to change nothing — the same courtesy Reset Strip Settings pays.
     ///
     /// Deliberately asked of each feature in turn rather than by comparing the
     /// preference domain: a first launch writes keys of its own (the sample
@@ -185,7 +185,7 @@ enum Config {
     /// and "nothing changed" are not the same question.
     static var isEverythingDefault: Bool {
         // The strip. The flash is asked for separately: it isn't geometry, so
-        // Restore Strip Settings deliberately leaves it alone, which means only
+        // Reset Strip Settings deliberately leaves it alone, which means only
         // this reset can be the one that clears it.
         guard isAppearanceDefault, !isFlashing, debugOffset == 0 else { return false }
         // The calendar
@@ -903,7 +903,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         length.submenu = labelLengthMenu()
         menu.addItem(length)
 
-        let restore = add("Restore Strip Settings", #selector(restoreDefaults), to: menu)
+        let restore = add("Reset Strip Settings", #selector(restoreDefaults), to: menu)
         restore.isEnabled = !Config.isAppearanceDefault
         restore.toolTip = restore.isEnabled
             ? "The strip only: ± 1 hour, a 250 pt timeline, 360 pt labels, all labels on"
