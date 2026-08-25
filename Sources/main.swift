@@ -872,7 +872,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let flash = NSMenuItem(title: Config.flashMenuTitle, action: nil, keyEquivalent: "")
         flash.submenu = endingFlashMenu()
         flash.state = Config.isFlashing ? .on : .off
-        flash.toolTip = "Flash the name of the block you're in, in red, as it nears its end"
         menu.addItem(flash)
 
         menu.addItem(.separator())
@@ -1662,7 +1661,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         off.target = self
         off.representedObject = 0.0
         off.state = Config.isFlashing ? .off : .on
-        off.toolTip = "The label still turns red for the last two minutes; it just doesn't flash"
         sub.addItem(off)
 
         sub.addItem(.separator())
@@ -1680,7 +1678,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         sub.addItem(.separator())
-        let note = NSMenuItem(title: "The name blinks red once a second — nothing else changes",
+        let note = NSMenuItem(title: "The name blinks red once a second, right up to the end",
                               action: nil, keyEquivalent: "")
         note.isEnabled = false
         sub.addItem(note)

@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] — 2026-08-26
+
+### Fixed
+
+- **Ending Soon Flash didn't flash** when set to 1 or 2 minutes — the two settings most likely to
+  be chosen. The last two minutes had been handed back to the steady red warning on the theory that
+  an early nudge hardening into a solid colour reads better, which is true right up until you pick
+  a window that lies entirely inside those two minutes and nothing ever blinks. Asking for a flash
+  now gets you one for the whole window you asked for, including the end of it.
+- The **tooltip on the Ending Soon Flash row** is gone, matching every other submenu parent in this
+  menu: a tooltip that covers the rows below it while you're reading them is a poor trade for a
+  sentence the submenu already says.
+
 ## [1.5.0] — 2026-08-25
 
 ### Added
@@ -13,13 +26,10 @@ All notable changes to this project are documented here. The format follows
   for attention, and one you didn't ask for is a distraction — and armed by choosing how early it
   starts: 1, 2, 5 or 10 minutes before the end, with **Off** inside the submenu rather than beside
   it, the way every other staged setting here works.
-- It doesn't replace the steady warning. The blink stops at the two-minute mark and the label
-  settles into the usual red and bold, whatever the flash is set to, and both use the same red
-  rather than inventing a second one: set the flash to five or ten minutes and an early nudge
-  hardens into a solid red as the block actually runs out. Set to one or two minutes it never
-  blinks — the urgent window already covers that ground.
-- Only the colour alternates — the weight is held constant while the flash is on, so the label
-  can't jitter and the menu bar item can't resize under the blink.
+- It doesn't replace the steady warning, it rides on top of it: the label still goes bold for the
+  final two minutes, and both use the same red rather than inventing a second one.
+- Only the colour alternates — the weight follows the two-minute warning as it always did, so the
+  label can't jitter and the menu bar item can't resize between blinks.
 - There is **no second timer**. The blink phase is read from the clock the strip already consults
   once a second to recompose its labels, so it costs nothing while it's off and nothing extra while
   it's on.
@@ -372,6 +382,7 @@ First public release.
 - Recurring events are handled for a common subset of RFC 5545 — `RRULE` with `FREQ`, `INTERVAL`,
   `COUNT`, `UNTIL`, `BYDAY`, plus `EXDATE` and `RECURRENCE-ID` overrides.
 
+[1.5.1]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.5.1
 [1.5.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.5.0
 [1.4.2]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.4.2
 [1.4.1]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.4.1

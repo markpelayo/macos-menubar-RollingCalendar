@@ -158,11 +158,12 @@ final class TimelineView: NSView {
             // one you didn't ask for is just a distraction. When it is on, the
             // name alternates between red and its usual colour each second —
             // the weight doesn't change with it, so the label can't jitter.
-            // The last two minutes belong to the steady red: an early nudge
-            // that hardens into a solid warning is a clearer story than a light
-            // that blinks all the way to the end, and it means the weight never
-            // changes mid-block either.
-            let flashing = Config.isFlashing && !urgent && remaining <= Config.flashSeconds
+            // Once you've asked for a flash, you get it for the whole window
+            // you asked for — including the last two minutes, which is exactly
+            // when it matters most. Handing those two minutes back to the
+            // steady red meant that choosing "1 minute" or "2 minutes" never
+            // blinked at all, which is not what anyone picking those means.
+            let flashing = Config.isFlashing && remaining <= Config.flashSeconds
             let shouting = urgent || flashing
             let lit = !flashing || Self.flashIsLit(now)
             // 🔴 means "two things want you right now". It counts only what is
