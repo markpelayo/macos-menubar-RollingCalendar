@@ -862,6 +862,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(saved)
         }
 
+        // Colour and the ending warning belong to the blocks themselves rather
+        // than to how the strip is drawn, so they sit with the calendar that
+        // produced them — the settings below the next line are all geometry.
+        let keywords = NSMenuItem(title: "Keyword Colors", action: nil, keyEquivalent: "")
+        keywords.submenu = keywordColoursMenu()
+        menu.addItem(keywords)
+
+        let flash = NSMenuItem(title: Config.flashMenuTitle, action: nil, keyEquivalent: "")
+        flash.submenu = endingFlashMenu()
+        flash.state = Config.isFlashing ? .on : .off
+        flash.toolTip = "Flash the name of the block you're in, in red, as it nears its end"
+        menu.addItem(flash)
+
         menu.addItem(.separator())
 
         // --- The strip ---
@@ -880,16 +893,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let length = NSMenuItem(title: "Label Length", action: nil, keyEquivalent: "")
         length.submenu = labelLengthMenu()
         menu.addItem(length)
-
-        let flash = NSMenuItem(title: Config.flashMenuTitle, action: nil, keyEquivalent: "")
-        flash.submenu = endingFlashMenu()
-        flash.state = Config.isFlashing ? .on : .off
-        flash.toolTip = "Flash the name of the block you're in, in red, as it nears its end"
-        menu.addItem(flash)
-
-        let keywords = NSMenuItem(title: "Keyword Colors", action: nil, keyEquivalent: "")
-        keywords.submenu = keywordColoursMenu()
-        menu.addItem(keywords)
 
         let restore = add("Restore Strip Settings", #selector(restoreDefaults), to: menu)
         restore.isEnabled = !Config.isAppearanceDefault

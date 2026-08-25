@@ -53,11 +53,11 @@ The rows are something to read, not something to press: a click does nothing and
 
 ### 3 · Where the calendar comes from
 
-This block sits between the day's blocks and the strip settings: the list above it is what the calendar produced, and the settings below it are how that list is drawn. **Demo Calendar** and **Saved Calendars ▸** live here — see [Connecting your calendar](#connecting-your-calendar).
+This block sits between the day's blocks and the strip settings, and holds everything about *what* the blocks are: **Demo Calendar** and **Saved Calendars ▸** decide where they come from (see [Connecting your calendar](#connecting-your-calendar)), **Keyword Colors ▸** what colour each one is, and **Ending Soon Flash ▸** how loudly the one you're in announces that it's nearly over.
 
-### 4 · Appearance and colours
+### 4 · The strip itself
 
-**Time Range**, **Timeline Width**, **Labels**, **Label Length**, **Keyword Colors** and **Restore Strip Settings**: everything about how the strip is drawn, and nothing about what it draws.
+**Time Range**, **Timeline Width**, **Labels**, **Label Length** and **Restore Strip Settings**: geometry, and nothing else — how much time is visible, how much menu bar it takes, and how long a name may get.
 
 ### 5 · Freshness and Refresh Now
 
@@ -163,28 +163,6 @@ defaults write io.github.macos-menubar-rollingcalendar dayAnchorKeyword "wake"
 
 A date separator marks where one day becomes the next, since otherwise today's 4:30 AM and tomorrow's look identical. Long cycles are capped at 60 rows with an "… and N more" line.
 
-## Ending Soon Flash
-
-Steady red says *this is nearly over*. A flash says *stop now* — so it's **off by default**, and you choose how early it starts:
-
-```
-Ending Soon Flash: Off ▸
-                        Off                        ✓
-                        ─────────────────────────
-                        1 minute before the end
-                        2 minutes before the end
-                        5 minutes before the end
-                        10 minutes before the end
-```
-
-The name of the block you're in alternates between red and its usual colour **once a second** for the last minute, two, five or ten. Only the colour changes — the weight stays put, so the label can't jitter and the strip can't resize under the blink.
-
-It doesn't replace the steady warning: the label still goes red and bold for the final two minutes whatever this is set to, and both use the same red rather than inventing a second one. Set the flash to 5 or 10 minutes and you get an early nudge that becomes a solid red as the block actually runs out.
-
-**Why it's off unless you ask.** Something blinking in your menu bar is a demand for attention, and a demand you didn't ask for is just a distraction — for a strip designed to be glanceable, that's the wrong default. It's a strip setting like the others, so **Restore Strip Settings** switches it off again.
-
-There's no extra timer behind it: the strip already recomposes its labels once a second, so the blink rides that tick and costs nothing while it's off.
-
 ## Keyword colors
 
 Colour blocks by what they're *called*, rather than by which calendar they came from.
@@ -273,6 +251,28 @@ Clear Keyword Colors
 ```
 
 Keep grey reserved for this: if a category also uses grey, "unclassified" stops being readable at a glance. `unmatchedColor` in defaults changes it if you'd rather grey were free for a category.
+
+## Ending Soon Flash
+
+Steady red says *this is nearly over*. A flash says *stop now* — so it's **off by default**, and you choose how early it starts:
+
+```
+Ending Soon Flash: Off ▸
+                        Off                        ✓
+                        ─────────────────────────
+                        1 minute before the end
+                        2 minutes before the end
+                        5 minutes before the end
+                        10 minutes before the end
+```
+
+The name of the block you're in alternates between red and its usual colour **once a second**, starting a minute, two, five or ten out. Only the colour changes — the weight stays put, so the label can't jitter and the strip can't resize under the blink.
+
+**The last two minutes belong to the steady warning.** The blink stops there and the label settles into the usual red and bold, whatever this is set to — an early nudge that hardens into a solid warning is a clearer story than a light blinking all the way to the end, and both use the same red rather than inventing a second one. Set the flash to 1 or 2 minutes and it never blinks at all: the urgent window already covers that ground.
+
+**Why it's off unless you ask.** Something blinking in your menu bar is a demand for attention, and a demand you didn't ask for is just a distraction — for a strip designed to be glanceable, that's the wrong default. The row sits with the calendar because it's about the blocks rather than the geometry, but it's still the strip's own warning, so **Restore Strip Settings** switches it off again.
+
+There's no extra timer behind it: the strip already recomposes its labels once a second, so the blink rides that tick and costs nothing while it's off.
 
 ## Debug Time
 
@@ -511,12 +511,12 @@ Most of it is in the menu — click the strip:
 | **Demo Calendar** | A generated day, so the strip works before any calendar is connected |
 | **Saved Calendars ▸** | Public feeds kept as named profiles: switch, rename, remove |
 | **Add Calendar…** | Takes the place of *Saved Calendars ▸* until the first calendar is saved |
+| **Keyword Colors ▸** | Import a CSV of keyword → colour rules, load the bundled sample, save it out to edit, or clear it |
+| **Ending Soon Flash ▸** | Flash the current block's name red as it nears its end: off, or 1 / 2 / 5 / 10 minutes before (**off** by default) |
 | **Time Range ▸** | How much time is visible: ±5 min through ±2 hours (default ±1 hour) |
 | **Timeline Width ▸** | How much menu bar the timeline takes: 100 pt to 450 pt in 50 pt steps (default 250 pt) |
 | **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
 | **Label Length ▸** | How long an event name may get before it's shortened: 100 pt to 480 pt, each annotated with the character count it works out to (default 360 pt, about 47 characters) |
-| **Ending Soon Flash ▸** | Flash the current block's name red as it nears its end: off, or 1 / 2 / 5 / 10 minutes before (**off** by default) |
-| **Keyword Colors ▸** | Import a CSV of keyword → colour rules, load the bundled sample, save it out to edit, or clear it |
 | **Restore Strip Settings** | The strip only: back to ±1 hour, 250 pt timeline, 360 pt labels, all labels on, no flash. Greyed out when nothing has been changed |
 | **Sound Hours ▸** | The hours in which the alerts and the chime may sound — several windows, midnight wrap allowed (default 11:30 AM – 4:30 AM) |
 | **Time Block Alerts ▸** | A sound or the block name spoken, as a block starts or at one or more lead times before it, for the categories you choose (**off** by default) |

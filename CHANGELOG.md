@@ -13,10 +13,11 @@ All notable changes to this project are documented here. The format follows
   for attention, and one you didn't ask for is a distraction — and armed by choosing how early it
   starts: 1, 2, 5 or 10 minutes before the end, with **Off** inside the submenu rather than beside
   it, the way every other staged setting here works.
-- It doesn't replace the steady warning. The label still turns red and bold for the final two
-  minutes whatever the flash is set to, and both use the same red rather than inventing a second
-  one: set the flash to five or ten minutes and an early nudge hardens into a solid red as the
-  block actually runs out.
+- It doesn't replace the steady warning. The blink stops at the two-minute mark and the label
+  settles into the usual red and bold, whatever the flash is set to, and both use the same red
+  rather than inventing a second one: set the flash to five or ten minutes and an early nudge
+  hardens into a solid red as the block actually runs out. Set to one or two minutes it never
+  blinks — the urgent window already covers that ground.
 - Only the colour alternates — the weight is held constant while the flash is on, so the label
   can't jitter and the menu bar item can't resize under the blink.
 - There is **no second timer**. The blink phase is read from the clock the strip already consults
@@ -24,6 +25,13 @@ All notable changes to this project are documented here. The format follows
   it's on.
 - It's a strip setting like the others, so **Restore Strip Settings** switches it off again and
   greys itself out when it's already off.
+
+### Changed
+
+- **Keyword Colors and Ending Soon Flash moved up**, to sit with Demo Calendar and Saved Calendars.
+  That block is now everything about *what* the blocks are — where they come from, what colour they
+  are, and how loudly the one you're in says it's nearly over — and the block below the line is
+  geometry alone: range, width, labels, label length.
 
 ## [1.4.2] — 2026-08-25
 
