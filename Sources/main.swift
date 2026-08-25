@@ -172,7 +172,6 @@ enum Config {
         abs(windowMinutes - defaultWindowMinutes) < 0.01
             && abs(Double(timelineWidth) - defaultTimelineWidth) < 0.01
             && abs(Double(maxLabelWidth) - defaultMaxLabelWidth) < 0.01
-            && !isFlashing
             && labelKeys.allSatisfy { flag($0) }
     }
 
@@ -185,8 +184,10 @@ enum Config {
     /// colours, and the flag that says they've been seeded), so "no keys stored"
     /// and "nothing changed" are not the same question.
     static var isEverythingDefault: Bool {
-        // The strip
-        guard isAppearanceDefault, debugOffset == 0 else { return false }
+        // The strip. The flash is asked for separately: it isn't geometry, so
+        // Restore Strip Settings deliberately leaves it alone, which means only
+        // this reset can be the one that clears it.
+        guard isAppearanceDefault, !isFlashing, debugOffset == 0 else { return false }
         // The calendar
         guard profiles.isEmpty, demoMode else { return false }
         // Colours
@@ -229,7 +230,6 @@ enum Config {
         d.removeObject(forKey: "windowMinutes")
         d.removeObject(forKey: "timelineWidth")
         d.removeObject(forKey: "maxLabelWidth")
-        d.removeObject(forKey: "endingFlashSeconds")
         for key in labelKeys { d.removeObject(forKey: key) }
     }
 
@@ -906,7 +906,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let restore = add("Restore Strip Settings", #selector(restoreDefaults), to: menu)
         restore.isEnabled = !Config.isAppearanceDefault
         restore.toolTip = restore.isEnabled
-            ? "The strip only: ± 1 hour, a 250 pt timeline, 360 pt labels, all labels on, no flash"
+            ? "The strip only: ± 1 hour, a 250 pt timeline, 360 pt labels, all labels on"
             : "Already at the default settings"
 
         // --- Sounds --- their own block, gated by one schedule
@@ -2090,12 +2090,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         •  The strip: ± 1 hour across 250 pt, all labels on
         •  Keyword colours: back to the built-in sample
+        •  Ending Soon Flash: off
         •  Sounds: alerts off, chime off, Sound Hours off
         •  Run at Startup: off, and the login item removed
         •  Debug Time: cleared
         •  \(calendars): removed, leaving the Demo Calendar
 
-        Your calendars themselves are untouched — only the links saved here are         forgotten. This can't be undone.
+        Your calendars themselves are untouched — only the links saved here are \
+        forgotten. This can't be undone.
         """
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Restore Defaults")

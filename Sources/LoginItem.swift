@@ -140,15 +140,34 @@ enum LoginItem {
     }
 
     private static func remove() {
-        // Harmless when it was never loaded, which is the usual case.
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        task.arguments = ["bootout", "gui/\(getuid())/\(label)"]
-        task.standardOutput = FileHandle.nullDevice
-        task.standardError = FileHandle.nullDevice
-        try? task.run()
-        task.waitUntilExit()
-
+        // The plist is what launchd reads at the next login, so deleting it is
+        // the part that has to happen now — and it's just a file.
         try? FileManager.default.removeItem(at: plistURL)
+
+        // Unloading a job that usually isn't loaded at all is the slow part:
+        // `launchctl bootout` can take seconds to answer, and waiting for it on
+        // the main thread freezes the menu bar — a spinning cursor for anyone
+        // who pressed Restore Defaults… or switched Run at Startup off. Nothing
+        // here depends on its answer, so it goes to a background queue.
+        let job = "gui/\(getuid())/\(label)"
+        DispatchQueue.global(qos: .utility).async {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            task.arguments = ["bootout", job]
+            task.standardOutput = FileHandle.nullDevice
+            task.standardError = FileHandle.nullDevice
+            do {
+                try task.run()
+            } catch {
+                NSLog("Rolling Calendar: could not unload the login agent — \(error)")
+                return
+            }
+            // And don't wait for ever if launchd is wedged: the plist is already
+            // gone, so a stuck unload changes nothing either way.
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 10) {
+                if task.isRunning { task.terminate() }
+            }
+            task.waitUntilExit()
+        }
     }
 }

@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] — 2026-08-26
+
+### Fixed
+
+- **Restore Defaults… froze the app for several seconds**, spinning cursor and all. Removing the
+  login item ran `launchctl bootout` and then waited for it on the main thread; unloading a job
+  that usually isn't loaded at all is slow to answer, and everything else — including the menu bar
+  — sat behind it. The plist, which is the part that decides whether the app launches next time, is
+  still deleted immediately; the unload now happens on a background queue and gives up after ten
+  seconds. Switching **Run at Startup** off was paying the same cost, and no longer does.
+
+### Changed
+
+- **Restore Strip Settings no longer touches Ending Soon Flash.** That reset is geometry — range,
+  width, labels, label length — and a warning you rely on shouldn't be switched off by a click
+  aimed at the timeline's proportions. **Restore Defaults…** clears it instead, greys itself out
+  while it's off, and now lists it among the things a reset will take.
+
 ## [1.6.0] — 2026-08-26
 
 ### Added
@@ -402,6 +420,7 @@ First public release.
 - Recurring events are handled for a common subset of RFC 5545 — `RRULE` with `FREQ`, `INTERVAL`,
   `COUNT`, `UNTIL`, `BYDAY`, plus `EXDATE` and `RECURRENCE-ID` overrides.
 
+[1.6.1]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.6.1
 [1.6.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.6.0
 [1.5.1]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.5.1
 [1.5.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.5.0
