@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Prints one version's section of CHANGELOG.md, for a release body:
 #
-#   ./release-notes.sh 1.5.1
-#   gh release create v1.5.1 --title v1.5.1 --notes-file <(./release-notes.sh 1.5.1)
+#   ./release-notes.sh 1.6.0
+#   gh release create v1.6.0 --title v1.6.0 --notes-file <(./release-notes.sh 1.6.0)
 #
 # No second copy of the notes to keep in step — the changelog is the source.
 set -euo pipefail
 
 version="${1:-}"
 if [[ -z "$version" ]]; then
-    echo "usage: $(basename "$0") <version>   e.g. $(basename "$0") 1.5.1" >&2
+    echo "usage: $(basename "$0") <version>   e.g. $(basename "$0") 1.6.0" >&2
     exit 2
 fi
 

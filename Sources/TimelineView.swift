@@ -166,6 +166,10 @@ final class TimelineView: NSView {
             let flashing = Config.isFlashing && remaining <= Config.flashSeconds
             let shouting = urgent || flashing
             let lit = !flashing || Self.flashIsLit(now)
+            // Bold for the whole flash window, not just the last two minutes:
+            // if you've said you want to know ten minutes out, the weight is
+            // part of knowing. It changes once, when the window opens, and then
+            // holds — so the blink is colour only and the label can't jitter.
             // 🔴 means "two things want you right now". It counts only what is
             // genuinely concurrent, so a reminder that fires and finishes in the
             // same instant raises the flag briefly and then lets it go, rather
@@ -177,7 +181,7 @@ final class TimelineView: NSView {
                 Segment(text: Config.showNowName ? current.title : "", truncatable: true),
                 Segment(text: Config.showNowTimeLeft ? "(\(Self.format(remaining)))" : "")
             ], cap: cap, color: shouting && lit ? .systemRed : normalInk,
-               baseBold: urgent, alignment: .right)
+               baseBold: shouting, alignment: .right)
         } else if Config.isSimulating {
             // Nothing running, but still say we're pretending.
             g.left = Self.compose([Segment(text: marker, bold: true)],

@@ -2,11 +2,11 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform: macOS 13+](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey)](#quick-start)
-[![Release: v1.5.1](https://img.shields.io/badge/release-v1.5.1-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
+[![Release: v1.6.0](https://img.shields.io/badge/release-v1.6.0-brightgreen)](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/latest)
 
 A macOS menu bar app that draws today's calendar as a horizontal timeline scrolling past a fixed "now" marker. Instead of asking *what time is my next thing*, you glance up and see where you are.
 
-It's in daily use, and [v1.5.1](CHANGELOG.md) is the current release. What it deliberately doesn't do is listed under [Known limitations](#known-limitations).
+It's in daily use, and [v1.6.0](CHANGELOG.md) is the current release. What it deliberately doesn't do is listed under [Known limitations](#known-limitations).
 
 ## The UI
 
@@ -28,7 +28,7 @@ The strip is deliberately small — it lives in the menu bar and is meant to be 
 Clicking it opens the day's blocks, and everything else lives in that menu. The first row names the app, the version it's actually running — read from the bundle, so it can't disagree with the binary — and opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar):
 
 ```
-macos-menubar-RollingCalendar 1.5.1  ·  by markpelayo
+macos-menubar-RollingCalendar 1.6.0  ·  by markpelayo
 ```
 
 ![A map of the whole menu, top to bottom](docs/ui-menu-map.png)
@@ -258,17 +258,20 @@ Steady red says *this is nearly over*. A flash says *stop now* — so it's **off
 
 ```
 Ending Soon Flash: Off ▸
-                        Off                        ✓
-                        ─────────────────────────
-                        1 minute before the end
-                        2 minutes before the end
-                        5 minutes before the end
-                        10 minutes before the end
+                        Off                    ✓
+                        ─────────────────────
+                        1 min before the end
+                        2 min before the end
+                        5 min before the end
+                        ─────────────────────
+                        Add Custom…
 ```
 
-The name of the block you're in alternates between red and its usual colour **once a second**, starting a minute, two, five or ten out and blinking right through to the end. Only the colour alternates — the weight doesn't, so the label can't jitter and the strip can't resize under the blink.
+The name of the block you're in goes **bold** and alternates between red and its usual colour **once a second**, from the point you chose right through to the end. The weight changes once, when the window opens, and then holds — the blink is colour only, so the label can't jitter and the strip can't resize between blinks.
 
-It doesn't replace the steady warning, it rides on top of it: the label still goes **bold** for the final two minutes, and both use the same red rather than inventing a second one. Set the flash to 5 or 10 minutes and you get an early nudge that turns bold as the block actually runs out; set it to 1 or 2 and the blink and the bold arrive together.
+**Add Custom…** takes any number of minutes from 0.25 to 60, so seven minutes or ninety seconds are as available as the three presets. It replaces what's set rather than adding to it — unlike alert lead times, this is one answer, not a set — and the window you typed appears in the list alongside the presets, ticked, so the setting is never invisible.
+
+It doesn't replace the steady warning, it starts earlier and does more: without it the label still turns red and bold on its own for the final two minutes, and both use the same red rather than inventing a second one.
 
 **Why it's off unless you ask.** Something blinking in your menu bar is a demand for attention, and a demand you didn't ask for is just a distraction — for a strip designed to be glanceable, that's the wrong default. The row sits with the calendar because it's about the blocks rather than the geometry, but it's still the strip's own warning, so **Restore Strip Settings** switches it off again.
 
@@ -512,7 +515,7 @@ Most of it is in the menu — click the strip:
 | **Saved Calendars ▸** | Public feeds kept as named profiles: switch, rename, remove |
 | **Add Calendar…** | Takes the place of *Saved Calendars ▸* until the first calendar is saved |
 | **Keyword Colors ▸** | Import a CSV of keyword → colour rules, load the bundled sample, save it out to edit, or clear it |
-| **Ending Soon Flash ▸** | Flash the current block's name red as it nears its end: off, or 1 / 2 / 5 / 10 minutes before (**off** by default) |
+| **Ending Soon Flash ▸** | The current block's name goes bold and blinks red as it nears its end: off, 1 / 2 / 5 min, or a custom 0.25–60 min (**off** by default) |
 | **Time Range ▸** | How much time is visible: ±5 min through ±2 hours (default ±1 hour) |
 | **Timeline Width ▸** | How much menu bar the timeline takes: 100 pt to 450 pt in 50 pt steps (default 250 pt) |
 | **Labels ▸** | Four toggles: block name and time left on the left, block name and duration on the right (all on by default) |
@@ -527,7 +530,7 @@ Most of it is in the menu — click the strip:
 | **Restore Defaults…** | A factory reset, confirmed first: every setting forgotten, saved calendars removed, back to Demo Calendar. Greyed out when everything already is at its defaults |
 | **Quit (⌘Q)** | Leaves nothing behind: no helper, and no login item unless you added one |
 
-The first row of the menu — `macos-menubar-RollingCalendar 1.5.1 · by markpelayo` — opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar). The version is read from the app bundle, so it always names the build you're running.
+The first row of the menu — `macos-menubar-RollingCalendar 1.6.0 · by markpelayo` — opens the [project page](https://github.com/markpelayo/macos-menubar-RollingCalendar). The version is read from the app bundle, so it always names the build you're running.
 
 The two are independent: **range** decides how much time you see, **width** decides how much space it gets. Together they set how big a block looks — at the default ±1 hour across 250 pt, a 15-minute block is about 31 pt wide; narrow the range to ±15 minutes at the same width and it grows to 125 pt. Each width option's tooltip does that arithmetic for you, and the note at the foot of the menu shows the current result.
 
@@ -647,13 +650,13 @@ Issues and pull requests are welcome. Keep it dependency-free and keep the idle 
 ## Releases
 
 Versions are tagged and described in [CHANGELOG.md](CHANGELOG.md), which is the only copy of the
-notes — `./release-notes.sh 1.5.1` prints one version's section for a release body. The same notes appear on the
+notes — `./release-notes.sh 1.6.0` prints one version's section for a release body. The same notes appear on the
 [releases page](https://github.com/markpelayo/macos-menubar-RollingCalendar/releases). Each release
 carries source only — no app bundle, for the notarisation reason above — so installing a given
 version means checking out its tag and running `./build.sh`:
 
 ```bash
-git checkout v1.5.1
+git checkout v1.6.0
 ./build.sh
 ```
 

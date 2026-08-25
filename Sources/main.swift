@@ -286,16 +286,26 @@ enum Config {
         UserDefaults.standard.set(max(seconds, 0), forKey: "endingFlashSeconds")
     }
 
-    /// One minute is "I need to wrap up"; ten is "start finding a stopping
-    /// point". Longer than that and the flash is on for most of a short block,
-    /// which stops it meaning anything.
-    static let flashChoices: [Double] = [60, 120, 300, 600]
+    /// One minute is "I need to wrap up"; five is "start finding a stopping
+    /// point". Anything else is a number you type — three presets and a custom
+    /// row read faster than a list long enough to cover everyone.
+    static let flashChoices: [Double] = [60, 120, 300]
 
     /// The whole setting, readable from the main menu without opening it.
     static var flashMenuTitle: String {
         guard isFlashing else { return "Ending Soon Flash: Off" }
-        let minutes = Int((flashSeconds / 60).rounded())
-        return "Ending Soon Flash: \(minutes) min before the end"
+        return "Ending Soon Flash: \(flashPhrase(flashSeconds)) before the end"
+    }
+
+    /// "5 min", or "90 sec" for a window shorter than a minute — a custom value
+    /// may be either, and rounding 90 seconds to "2 min" would be a lie about a
+    /// number the user typed themselves.
+    static func flashPhrase(_ seconds: TimeInterval) -> String {
+        if seconds < 60 { return "\(Int(seconds.rounded())) sec" }
+        let minutes = seconds / 60
+        return minutes == minutes.rounded()
+            ? "\(Int(minutes)) min"
+            : String(format: "%.1f min", minutes)
     }
 
     /// The block that marks the start of your day in the dropdown. Everything
@@ -1666,23 +1676,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sub.addItem(.separator())
 
         for seconds in Config.flashChoices {
-            let minutes = Int((seconds / 60).rounded())
-            let title = minutes == 1 ? "1 minute before the end"
-                                     : "\(minutes) minutes before the end"
-            let item = NSMenuItem(title: title, action: #selector(chooseEndingFlash(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.representedObject = seconds
-            item.state = abs(Config.flashSeconds - seconds) < 0.01 ? .on : .off
-            sub.addItem(item)
+            sub.addItem(flashRow(seconds))
+        }
+
+        // A window you typed sits with the presets rather than hidden behind the
+        // row that made it — otherwise the one setting in this menu that isn't
+        // on the list is also the one you can't see.
+        if Config.isFlashing, !Config.flashChoices.contains(where: {
+            abs($0 - Config.flashSeconds) < 0.01
+        }) {
+            sub.addItem(.separator())
+            sub.addItem(flashRow(Config.flashSeconds))
         }
 
         sub.addItem(.separator())
-        let note = NSMenuItem(title: "The name blinks red once a second, right up to the end",
+        let custom = NSMenuItem(title: "Add Custom…", action: #selector(pickCustomFlash),
+                                keyEquivalent: "")
+        custom.target = self
+        sub.addItem(custom)
+
+        sub.addItem(.separator())
+        let note = NSMenuItem(title: "The name goes bold and blinks red, right up to the end",
                               action: nil, keyEquivalent: "")
         note.isEnabled = false
         sub.addItem(note)
         return sub
+    }
+
+    /// One row of the flash menu: a window, ticked when it's the one in force.
+    private func flashRow(_ seconds: Double) -> NSMenuItem {
+        let item = NSMenuItem(title: "\(Config.flashPhrase(seconds)) before the end",
+                              action: #selector(chooseEndingFlash(_:)), keyEquivalent: "")
+        item.target = self
+        item.representedObject = seconds
+        item.state = abs(Config.flashSeconds - seconds) < 0.01 ? .on : .off
+        return item
     }
 
     /// How long an event name may get before it's shortened with an ellipsis.
@@ -2376,6 +2404,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func resetDebugTime() {
         Config.clearDebugTime()
         reloadAfterSourceChange()
+    }
+
+    /// A window of your own, for when none of the three presets is the number
+    /// you had in mind. It replaces whatever was set rather than joining it:
+    /// unlike alert lead times, this is one answer, not a set.
+    @objc private func pickCustomFlash() {
+        menu.cancelTracking()
+        NSApp.activate(ignoringOtherApps: true)
+
+        let alert = NSAlert()
+        alert.messageText = "Ending Soon Flash"
+        alert.informativeText = "How long before a block ends should its name start flashing? "
+            + "Minutes, from 0.25 to 60."
+        alert.addButton(withTitle: "Set")
+        alert.addButton(withTitle: "Cancel")
+
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 120, height: 24))
+        field.stringValue = Config.isFlashing
+            ? String(format: "%g", Config.flashSeconds / 60)
+            : "3"
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let text = field.stringValue.trimmingCharacters(in: .whitespaces)
+        guard let minutes = Double(text), minutes.isFinite, minutes > 0 else { return }
+        Config.setFlashSeconds((min(max(minutes, 0.25), 60) * 60).rounded())
+        redrawNow()
     }
 
     @objc private func chooseEndingFlash(_ sender: NSMenuItem) {

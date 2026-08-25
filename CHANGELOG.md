@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] — 2026-08-26
+
+### Added
+
+- **Ending Soon Flash takes a custom window.** *Add Custom…* accepts any number of minutes from
+  0.25 to 60, so seven minutes or ninety seconds are as available as the presets. It replaces
+  what's set rather than joining it — unlike alert lead times, this is one answer, not a set — and
+  the window you typed is listed alongside the presets, ticked, rather than hidden behind the row
+  that created it.
+
+### Changed
+
+- **The label is bold for the whole flash window**, not just the final two minutes. If you've said
+  you want to know ten minutes out, the weight is part of knowing. It changes once, when the window
+  opens, and then holds, so the blink stays colour-only and the label can't jitter.
+- **The 10-minute preset is gone**, leaving 1, 2 and 5 with *Add Custom…* below them. Three rows
+  and a way to type a number read faster than a list long enough to cover everyone.
+- The rows are shorter — `5 min before the end` rather than `5 minutes before the end` — matching
+  the parent row, which now reads `Ending Soon Flash: 5 min before the end`.
+
 ## [1.5.1] — 2026-08-26
 
 ### Fixed
@@ -382,6 +402,7 @@ First public release.
 - Recurring events are handled for a common subset of RFC 5545 — `RRULE` with `FREQ`, `INTERVAL`,
   `COUNT`, `UNTIL`, `BYDAY`, plus `EXDATE` and `RECURRENCE-ID` overrides.
 
+[1.6.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.6.0
 [1.5.1]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.5.1
 [1.5.0]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.5.0
 [1.4.2]: https://github.com/markpelayo/macos-menubar-RollingCalendar/releases/tag/v1.4.2
